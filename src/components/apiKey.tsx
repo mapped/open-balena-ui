@@ -25,7 +25,7 @@ import {
   useUnique,
   required,
 } from 'react-admin';
-import { useCreateApiKey, useGenerateApiKey, useModifyApiKey } from '../lib/apiKey';
+import { useCreateApiKey, useModifyApiKey } from '../lib/apiKey';
 import ActorFilter from '../ui/ActorFilter';
 import CopyChip from '../ui/CopyChip';
 import DeleteApiKeyButton from '../ui/DeleteApiKeyButton';
@@ -159,22 +159,12 @@ export const ApiKeyList: React.FC = () => {
 };
 
 export const ApiKeyCreate: React.FC = (props) => {
-  const generateApiKey = useGenerateApiKey();
   const createApiKey = useCreateApiKey();
   const unique = useUnique();
 
   return (
     <Create {...props} transform={createApiKey}>
       <SimpleForm>
-        <TextInput
-          source='key'
-          defaultValue={generateApiKey()}
-          size='large'
-          fullWidth={true}
-          validate={[required(), unique()]}
-          readOnly={true}
-        />
-
         <Row>
           {' '}
           <TextInput source='name' size='large' validate={[required(), unique()]} />

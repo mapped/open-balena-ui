@@ -1,19 +1,4 @@
 import { useDataProvider } from 'react-admin';
-import { deleteAllRelated } from './delete';
-
-export function useGenerateApiKey() {
-  return () => {
-    const keyLength = 32;
-    const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let i,
-      key = '';
-    const charactersLength = characters.length;
-    for (i = 0; i < keyLength; i++) {
-      key += characters.substr(Math.floor(Math.random() * charactersLength + 1), 1);
-    }
-    return key;
-  };
-}
 
 export function useCreateApiKey() {
   return (data) => {
@@ -67,12 +52,6 @@ export function useDeleteApiKey() {
   const dataProvider = useDataProvider();
 
   return async (apiKey) => {
-    let relatedIndirectLookups = [];
-    let relatedDirectLookups = [
-      { remoteResource: 'api key-has-permission', remoteField: 'api key', localField: 'id' },
-      { remoteResource: 'api key-has-role', remoteField: 'api key', localField: 'id' },
-    ];
-    await deleteAllRelated(dataProvider, apiKey, relatedIndirectLookups, relatedDirectLookups);
     await dataProvider.delete('api key', { id: apiKey.id });
     return Promise.resolve();
   };

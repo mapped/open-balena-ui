@@ -101,8 +101,11 @@ Redaction is applied in both legacy and enforced modes:
 | SSH `public key`                 | Returned only for the authenticated user's own key; other records expose metadata only   |
 
 Credential fields are also rejected in query parameters to prevent filter-based inference. Generic user POST, PATCH, and
-PUT requests cannot set password/JWT-secret fields, and generic mutations cannot change API-key material. PostgREST
-upsert preferences are rejected so a create request cannot modify an existing out-of-scope record.
+PUT requests cannot set password/JWT-secret fields, and generic API-key creation or key-material mutation is rejected.
+API keys are created through `/admin-db/actions/create-api-key`, which validates the target actor and generates key
+material with the server's cryptographic random source. Deletion uses `/admin-db/actions/delete-api-key` so dependent
+privilege rows are removed only after the server validates the key itself is in mutation scope. PostgREST upsert
+preferences are rejected so a create request cannot modify an existing out-of-scope record.
 
 Password changes use the dedicated `/admin-db/actions/change-password` action. It allows users to change their own
 password when they have administrator access and allows administrators to change only passwords for users within their
@@ -110,11 +113,11 @@ computed scope. Password hashing is performed on the UI server; generic user PAT
 changes.
 
 User creation uses `/admin-db/actions/create-user`; password hashing, JWT-secret generation, and named-user credential
-provisioning all occur on the UI server. Device and fleet creation use `/admin-db/actions/provision-credential-actor`.
-These actions create actors, API keys, and role assignments through old-compatible PostgREST operations, with
-best-effort cleanup after partial failures. Human credential material is never returned to the administrator's browser.
-User creation and unbound actor provisioning are global-admin-only; organization administrators may create and maintain
-additional keys only for existing fleet/device actors already in their organization scope.
+provisioning all occur on the UI server. Device and fleet creation use `/admin-db/actions/create-operational-resource`,
+which provisions the credential actor and performs the open-balena-api write in one server workflow. If the API write
+fails, the newly created role assignment, API key, and actor are removed. Human credential material is never returned to
+the administrator's browser. User, device, and fleet creation are global-admin-only; organization administrators may
+create and maintain additional keys only for existing fleet/device actors already in their organization scope.
 
 ## Deployment checklist
 

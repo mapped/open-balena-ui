@@ -92,16 +92,79 @@ test('hybrid provider creates users through the dedicated action', async () => {
   assert.equal(requests[0].options?.method, 'POST');
 });
 
-test('hybrid provider provisions credential actors through the dedicated action', async () => {
+test('hybrid provider creates API keys through the dedicated action', async () => {
   const requests: Array<{ url: string; options?: Options }> = [];
   const provider = openBalenaDataProvider('https://api.example.test', async (url, options) => {
     requests.push({ url, options });
-    return response({ actorId: 42 });
+    return response({ id: 42, name: 'device key' });
   });
 
-  const result = await provider.createCredentialActor({ role: 'device-api-key' });
+  const result = await provider.create('api key', {
+    data: { 'is of-actor': 7, 'name': 'device key', 'description': 'test' },
+  });
 
-  assert.deepEqual(result, { actorId: 42 });
-  assert.equal(requests[0].url, '/admin-db/actions/provision-credential-actor');
-  assert.deepEqual(JSON.parse(String(requests[0].options?.body)), { role: 'device-api-key' });
+  assert.deepEqual(result.data, { id: 42, name: 'device key' });
+  assert.equal(requests[0].url, '/admin-db/actions/create-api-key');
+  assert.deepEqual(JSON.parse(String(requests[0].options?.body)), {
+    'is of-actor': 7,
+    'name': 'device key',
+    'description': 'test',
+  });
+});
+
+test('hybrid provider coordinates application and device creation through the server', async () => {
+  const requests: Array<{ url: string; options?: Options }> = [];
+  const provider = openBalenaDataProvider('https://api.example.test', async (url, options) => {
+    requests.push({ url, options });
+    return response({ id: requests.length, actor: 100 + requests.length });
+  });
+
+  await provider.create('application', { data: { 'app name': 'fleet' } });
+  await provider.create('device', { data: { 'device name': 'device' } });
+
+  assert.deepEqual(
+    requests.map(({ url }) => url),
+    ['/admin-db/actions/create-operational-resource', '/admin-db/actions/create-operational-resource'],
+  );
+  assert.deepEqual(JSON.parse(String(requests[0].options?.body)), {
+    resource: 'application',
+    data: { 'app name': 'fleet' },
+  });
+  assert.deepEqual(JSON.parse(String(requests[1].options?.body)), {
+    resource: 'device',
+    data: { 'device name': 'device' },
+  });
+});
+
+test('hybrid provider deletes API keys through the scoped server action', async () => {
+  const requests: Array<{ url: string; options?: Options }> = [];
+  const provider = openBalenaDataProvider('https://api.example.test', async (url, options) => {
+    requests.push({ url, options });
+    return response({ id: 42 });
+  });
+
+  const result = await provider.delete('api key', { id: 42 });
+
+  assert.deepEqual(result.data, { id: 42 });
+  assert.equal(requests[0].url, '/admin-db/actions/delete-api-key');
+  assert.deepEqual(JSON.parse(String(requests[0].options?.body)), { id: 42 });
+});
+
+test('hybrid provider deletes API keys in bulk through the scoped server action', async () => {
+  const requests: Array<{ url: string; options?: Options }> = [];
+  const provider = openBalenaDataProvider('https://api.example.test', async (url, options) => {
+    requests.push({ url, options });
+    return response({ id: JSON.parse(String(options?.body)).id });
+  });
+
+  const result = await provider.deleteMany('api key', { ids: [41, 42] });
+
+  assert.deepEqual(result.data, [41, 42]);
+  assert.deepEqual(
+    requests.map(({ url, options }) => [url, JSON.parse(String(options?.body)).id]),
+    [
+      ['/admin-db/actions/delete-api-key', 41],
+      ['/admin-db/actions/delete-api-key', 42],
+    ],
+  );
 });

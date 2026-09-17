@@ -53,6 +53,7 @@ import DeviceStructuredFilter from '../ui/DeviceStructuredFilter';
 
 // Get the proper field name for isPinnedOnRelease based on API version
 const isPinnedOnRelease = versions.resource('isPinnedOnRelease', environment.REACT_APP_OPEN_BALENA_API_VERSION);
+const applicationClass = versions.optionalField('applicationIsOfClass', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
 export const OnlineField: React.FC<Omit<FunctionFieldProps<any>, 'render'>> = (props) => {
   const theme = useTheme();
@@ -235,7 +236,7 @@ const DeviceListActions = () => (
           },
         },
         // Hide original text - the text is directly in the button
-        fontSize: 0,
+        'fontSize': 0,
         '&::after': {
           content: '"Save Filters"',
           fontSize: '0.8125rem',
@@ -358,7 +359,7 @@ export const DeviceCreate: React.FC = () => {
             target='id'
             perPage={1000}
             sort={{ field: 'app name', order: 'ASC' }}
-            filter={{ 'is of-class': 'fleet' }}
+            filter={applicationClass ? { [applicationClass]: 'fleet' } : {}}
           >
             <SelectInput optionText='app name' optionValue='id' validate={required()} size='large' />
           </ReferenceInput>
@@ -432,7 +433,7 @@ export const DeviceEdit: React.FC = () => {
             target='id'
             perPage={1000}
             sort={{ field: 'app name', order: 'ASC' }}
-            filter={{ 'is of-class': 'fleet' }}
+            filter={applicationClass ? { [applicationClass]: 'fleet' } : {}}
           >
             <SelectInput optionText='app name' optionValue='id' validate={required()} />
           </ReferenceInput>

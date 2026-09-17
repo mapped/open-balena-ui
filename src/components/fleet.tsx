@@ -29,7 +29,6 @@ import { Chip } from '@mui/material';
 import SwitchAccessShortcutIcon from '@mui/icons-material/SwitchAccessShortcut';
 import { useParams } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
-import { useCreateFleet } from '../lib/fleet';
 import DeleteFleetButton from '../ui/DeleteFleetButton';
 import Row from '../ui/Row';
 import SemVerChip, { getSemver } from '../ui/SemVerChip';
@@ -129,11 +128,10 @@ export const FleetList: React.FC = () => {
 };
 
 export const FleetCreate: React.FC<CreateProps> = (props) => {
-  let createFleet = useCreateFleet();
   const unique = useUnique();
 
   return (
-    <Create title='Create Fleet' redirect='list' transform={createFleet} {...props}>
+    <Create title='Create Fleet' redirect='list' {...props}>
       <SimpleForm>
         <Row>
           <TextInput source='app name' validate={[required(), minLength(4), maxLength(100), unique()]} size='large' />

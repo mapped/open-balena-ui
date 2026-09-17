@@ -46,10 +46,11 @@ administrators must be able to create and maintain provisioning/device credentia
 actor ownership in the `/admin-db` proxy rather than from client-supplied filters.
 
 User creation is a server-only action that hashes the password, generates the JWT secret, and provisions the named-user
-credential actor through PostgREST tables available on legacy installations. Device and fleet credential actors use a
-separate server-only provisioning action. The server generates each key and performs best-effort cleanup if actor, key,
-role-assignment, or user creation does not complete. Human-user key material is not returned to the administrator's
-browser.
+credential actor through PostgREST tables available on legacy installations. Device and fleet creation use a coordinated
+server action that provisions the credential actor and then writes the operational record through open-balena-api. If
+the API write fails, the server removes the newly created role assignment, API key, and actor. Additional API keys are
+also created by a server action using cryptographically random material after validating the target actor. Human-user
+key material is not returned to the administrator's browser.
 
 These requests pass through the UI server's `/admin-db` authorization proxy and retain the authenticated JWT, but they
 still **do not gain open-balena-api ACL enforcement**. The PostgREST service must not be publicly reachable. Deploy it

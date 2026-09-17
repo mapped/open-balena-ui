@@ -1,15 +1,9 @@
 import { useDataProvider } from 'react-admin';
 import { useDeleteApiKey } from './apiKey';
 import { deleteAllRelated } from './delete';
-import type { OpenBalenaDataProvider } from '../dataProvider/openBalenaDataProvider';
 
 export function useCreateDevice() {
-  const dataProvider = useDataProvider<OpenBalenaDataProvider>();
-
-  return async (data) => {
-    const { actorId } = await dataProvider.createCredentialActor({ role: 'device-api-key' });
-    data.actor = actorId;
-
+  return (data) => {
     // delete unused field
     delete data['operated by-application'];
     return data;

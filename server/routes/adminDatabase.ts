@@ -1,6 +1,7 @@
 import { json, Router, type Response } from 'express';
 import { randomBytes } from 'node:crypto';
 import base32Encode from 'base32-encode';
+import semver from 'semver';
 import {
   authorizeAdministratorRoleCreation,
   authorizeCredentialActorProvision,
@@ -30,6 +31,88 @@ const getPostgrestUrl = (): string => {
     throw new Error('OPEN_BALENA_POSTGREST_URL must be configured.');
   }
   return value.replace(/\/+$/, '');
+};
+
+const getOpenBalenaApiUrl = (): string => {
+  const value = process.env.REACT_APP_OPEN_BALENA_API_URL;
+  if (!value) {
+    throw new Error('REACT_APP_OPEN_BALENA_API_URL must be configured.');
+  }
+  return value.replace(/\/+$/, '');
+};
+
+const getODataVersion = (): string => {
+  const override = process.env.REACT_APP_OPEN_BALENA_ODATA_VERSION;
+  if (override) {
+    const normalized = override.startsWith('v') ? override : `v${override}`;
+    if (!['v6', 'v7'].includes(normalized)) {
+      throw new Error('REACT_APP_OPEN_BALENA_ODATA_VERSION must be v6 or v7.');
+    }
+    return normalized;
+  }
+  const serverVersion = semver.coerce(process.env.REACT_APP_OPEN_BALENA_API_VERSION);
+  return serverVersion && semver.gte(serverVersion, '25.2.8') ? 'v7' : 'v6';
+};
+
+const toApiField = (field: string): string => field.replace(/-/g, '__').replace(/ /g, '_');
+const fromApiField = (field: string): string => field.replace(/__/g, '-').replace(/_/g, ' ');
+
+const transformToOData = (input: unknown): unknown => {
+  if (Array.isArray(input)) {
+    return input.map(transformToOData);
+  }
+  if (!input || typeof input !== 'object') {
+    return input;
+  }
+  return Object.fromEntries(
+    Object.entries(input as Record<string, unknown>)
+      .filter(([key, value]) => value !== undefined && key !== 'id')
+      .map(([key, value]) => [toApiField(key), transformToOData(value)]),
+  );
+};
+
+const transformFromOData = (input: unknown): unknown => {
+  if (Array.isArray(input)) {
+    return input.map(transformFromOData);
+  }
+  if (!input || typeof input !== 'object') {
+    return input;
+  }
+  const record = input as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(record)
+      .filter(([key]) => !key.startsWith('@odata.') && !['__metadata', '__deferred', '__count'].includes(key))
+      .map(([key, value]) => {
+        const transformedValue =
+          value && typeof value === 'object' && !Array.isArray(value) && '__id' in value
+            ? Object.keys(value).length === 1
+              ? (value as Record<string, unknown>).__id
+              : transformFromOData(value)
+            : transformFromOData(value);
+        return [fromApiField(key), transformedValue];
+      }),
+  );
+};
+
+const extractODataRecord = (body: unknown): Record<string, unknown> | undefined => {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+  if ('d' in body) {
+    const data = (body as { d: unknown }).d;
+    if (Array.isArray(data)) {
+      return data[0] as Record<string, unknown> | undefined;
+    }
+    if (data && typeof data === 'object' && 'results' in data) {
+      return (data as { results: Array<Record<string, unknown>> }).results[0];
+    }
+    return data as Record<string, unknown>;
+  }
+  if ('value' in body) {
+    const value = (body as { value: unknown }).value;
+    return (Array.isArray(value) ? value[0] : value) as Record<string, unknown> | undefined;
+  }
+  return body as Record<string, unknown>;
 };
 
 export const requestHeaders = (authorization: string, headers?: HeadersInit): Headers => {
@@ -94,6 +177,13 @@ const validatePassword = (password: unknown): password is string =>
   /[A-Z]/.test(password) &&
   /\d/.test(password) &&
   /[^A-Za-z0-9]/.test(password);
+
+const requireObjectBody = (body: unknown, operation: string): Record<string, unknown> => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error(`${operation} requires an object body.`);
+  }
+  return body as Record<string, unknown>;
+};
 
 router.post('/admin-db/actions/change-password', ...dosProtect, authorize, async (req, res) => {
   try {
@@ -164,27 +254,42 @@ const createRecord = async (
   return record;
 };
 
+const deleteApiKeyRecord = async (authorization: string, apiKeyId: number): Promise<void> => {
+  const mappingQuery = new URLSearchParams({ 'api key': `eq.${apiKeyId}` });
+  for (const resource of ['api key-has-permission', 'api key-has-role']) {
+    const mappingResponse = await fetch(`${getPostgrestUrl()}/${encodeURIComponent(resource)}?${mappingQuery}`, {
+      method: 'DELETE',
+      headers: requestHeaders(authorization),
+    });
+    if (!mappingResponse.ok) {
+      throw new UpstreamRequestError(`Unable to clean up ${resource} records (${mappingResponse.status}).`);
+    }
+  }
+  const apiKeyResponse = await fetch(`${getPostgrestUrl()}/${encodeURIComponent('api key')}?id=eq.${apiKeyId}`, {
+    method: 'DELETE',
+    headers: requestHeaders(authorization),
+  });
+  if (!apiKeyResponse.ok) {
+    throw new UpstreamRequestError(`Unable to delete the API key (${apiKeyResponse.status}).`);
+  }
+};
+
 const deleteCredentialActor = async (
   authorization: string,
   actorId: number | undefined,
   apiKeyId: number | undefined,
 ): Promise<void> => {
   if (apiKeyId != null) {
-    const mappingQuery = new URLSearchParams({ 'api key': `eq.${apiKeyId}` });
-    await fetch(`${getPostgrestUrl()}/${encodeURIComponent('api key-has-role')}?${mappingQuery}`, {
-      method: 'DELETE',
-      headers: requestHeaders(authorization),
-    });
-    await fetch(`${getPostgrestUrl()}/${encodeURIComponent('api key')}?id=eq.${apiKeyId}`, {
-      method: 'DELETE',
-      headers: requestHeaders(authorization),
-    });
+    await deleteApiKeyRecord(authorization, apiKeyId);
   }
   if (actorId != null) {
-    await fetch(`${getPostgrestUrl()}/${encodeURIComponent('actor')}?id=eq.${actorId}`, {
+    const actorResponse = await fetch(`${getPostgrestUrl()}/${encodeURIComponent('actor')}?id=eq.${actorId}`, {
       method: 'DELETE',
       headers: requestHeaders(authorization),
     });
+    if (!actorResponse.ok) {
+      throw new UpstreamRequestError(`Unable to clean up the credential actor (${actorResponse.status}).`);
+    }
   }
 };
 
@@ -227,22 +332,6 @@ const provisionCredentialActor = async (
   }
 };
 
-router.post('/admin-db/actions/provision-credential-actor', ...dosProtect, authorize, async (req, res) => {
-  try {
-    const authorization = req.headers.authorization!;
-    const context = await buildAccessContext((res.locals as AuthorizedLocals).auth, databaseReader(authorization));
-    authorizeCredentialActorProvision(context);
-    const role = req.body?.role;
-    if (!['named-user-api-key', 'device-api-key', 'provisioning-api-key'].includes(role)) {
-      throw new Error('A supported credential actor role is required.');
-    }
-    const { actorId } = await provisionCredentialActor(authorization, role);
-    res.json({ actorId });
-  } catch (error) {
-    sendDenied(res, error);
-  }
-});
-
 router.post('/admin-db/actions/create-user', ...dosProtect, authorize, async (req, res) => {
   let actorId: number | undefined;
   let apiKeyId: number | undefined;
@@ -281,6 +370,100 @@ router.post('/admin-db/actions/create-user', ...dosProtect, authorize, async (re
   }
 });
 
+router.post('/admin-db/actions/create-api-key', ...dosProtect, authorize, async (req, res) => {
+  try {
+    const authorization = req.headers.authorization!;
+    const context = await buildAccessContext((res.locals as AuthorizedLocals).auth, databaseReader(authorization));
+    const body = requireObjectBody(req.body, 'API key creation');
+    const { 'is of-actor': actor, name, description, ...unexpected } = body;
+    if (
+      !Number.isInteger(Number(actor)) ||
+      Number(actor) <= 0 ||
+      typeof name !== 'string' ||
+      !name.trim() ||
+      (description != null && typeof description !== 'string') ||
+      Object.keys(unexpected).length
+    ) {
+      throw new Error('API key creation requires an actor and name.');
+    }
+    authorizeResource(context, 'api key', 'POST');
+    authorizeMutationBody(context, 'api key', 'POST', { 'is of-actor': Number(actor) });
+    const record = await createRecord(authorization, 'api key', {
+      'is of-actor': Number(actor),
+      'key': randomBytes(32).toString('base64url'),
+      'name': name.trim(),
+      ...(description ? { description } : {}),
+    });
+    res.status(201).json(redactSecrets('api key', record, context));
+  } catch (error) {
+    sendDenied(res, error);
+  }
+});
+
+router.post('/admin-db/actions/delete-api-key', ...dosProtect, authorize, async (req, res) => {
+  try {
+    const authorization = req.headers.authorization!;
+    const context = await buildAccessContext((res.locals as AuthorizedLocals).auth, databaseReader(authorization));
+    const apiKeyId = Number(req.body?.id);
+    if (!Number.isInteger(apiKeyId) || apiKeyId <= 0) {
+      throw new Error('API key deletion requires a valid ID.');
+    }
+    const allowedIds = authorizeResource(context, 'api key', 'DELETE');
+    if (allowedIds && !allowedIds.has(apiKeyId)) {
+      throw new Error('The API key is outside the administrator scope.');
+    }
+    await deleteApiKeyRecord(authorization, apiKeyId);
+    res.json({ id: apiKeyId });
+  } catch (error) {
+    sendDenied(res, error);
+  }
+});
+
+router.post('/admin-db/actions/create-operational-resource', ...dosProtect, authorize, async (req, res) => {
+  let actorId: number | undefined;
+  let apiKeyId: number | undefined;
+  let operationalRecordCreated = false;
+  try {
+    const authorization = req.headers.authorization!;
+    const context = await buildAccessContext((res.locals as AuthorizedLocals).auth, databaseReader(authorization));
+    authorizeCredentialActorProvision(context);
+    const body = requireObjectBody(req.body, 'Operational resource creation');
+    const resource = body.resource;
+    const data = requireObjectBody(body.data, 'Operational resource creation data');
+    if (!['application', 'device'].includes(String(resource)) || 'actor' in data) {
+      throw new Error('Only application and device creation without a caller-supplied actor is supported.');
+    }
+    const role = resource === 'device' ? 'device-api-key' : 'provisioning-api-key';
+    ({ actorId, apiKeyId } = await provisionCredentialActor(authorization, role));
+    const upstream = await fetch(`${getOpenBalenaApiUrl()}/${getODataVersion()}/${resource}`, {
+      method: 'POST',
+      headers: requestHeaders(authorization, {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+      }),
+      body: JSON.stringify(transformToOData({ ...data, actor: actorId })),
+    });
+    if (!upstream.ok) {
+      throw new UpstreamRequestError(`Unable to create ${resource} (${upstream.status}).`);
+    }
+    operationalRecordCreated = true;
+    const record = transformFromOData(extractODataRecord((await upstream.json()) as unknown) ?? {}) as Record<
+      string,
+      unknown
+    >;
+    if (!Number.isInteger(Number(record.id)) || Number(record.id) <= 0) {
+      throw new UpstreamRequestError(`Creating ${resource} returned an invalid record.`);
+    }
+    res.status(201).json(record);
+  } catch (error) {
+    if (!operationalRecordCreated && (actorId != null || apiKeyId != null)) {
+      await deleteCredentialActor(req.headers.authorization!, actorId, apiKeyId);
+    }
+    sendDenied(res, error);
+  }
+});
+
 router.all('/admin-db/:resource', ...dosProtect, authorize, async (req, res) => {
   try {
     const authorization = req.headers.authorization!;
@@ -306,6 +489,12 @@ router.all('/admin-db/:resource', ...dosProtect, authorize, async (req, res) => 
     }
     if (['POST', 'PATCH', 'PUT'].includes(req.method) && resource === 'user' && bodyContainsUserCredentials(req.body)) {
       throw new Error('Use the dedicated password or credential rotation action.');
+    }
+    if (req.method === 'POST' && resource === 'api key') {
+      throw new Error('Use the dedicated API key creation action.');
+    }
+    if (req.method === 'DELETE' && resource === 'api key') {
+      throw new Error('Use the dedicated API key deletion action.');
     }
     if (['PATCH', 'PUT'].includes(req.method) && resource === 'api key' && req.body && 'key' in req.body) {
       throw new Error('API key material cannot be changed through direct database access.');

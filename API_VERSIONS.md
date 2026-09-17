@@ -46,8 +46,8 @@ PostgREST resources that are present at the v0.139.0 support floor.
 ## v0.157.3 through v0.157.x
 
 - Adds the application `is of-class` field.
-- Fleet create/edit forms show the class selector beginning at this boundary. Older servers omit the control entirely
-  rather than sending an unsupported field.
+- Fleet create/edit forms and class-dependent fleet/OS queries use this field beginning at this boundary. Older servers
+  omit the control and class filters entirely rather than sending an unsupported field.
 
 ## v0.149.0 through v0.157.2
 

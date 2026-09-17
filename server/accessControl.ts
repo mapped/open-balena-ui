@@ -42,6 +42,7 @@ export interface AccessContext {
   ownGlobalRoleAssignmentIds: Set<number>;
   protectedRoleIds: Set<number>;
   manageableApiKeyActorIds: Set<number>;
+  manageableApiKeyIds: Set<number>;
   visibleApiKeyIds: Set<number>;
 }
 
@@ -194,6 +195,7 @@ export const buildAccessContext = async (payload: JWTPayload, database: Database
 
   if (!globalRoleIds.size) {
     const manageableApiKeyActorIds = await getManagedCredentialActors(database);
+    const manageableApiKeyIds = await getVisibleApiKeyIds(database, ownActorId, manageableApiKeyActorIds);
     return {
       enforcementEnabled: false,
       globalAdmin: true,
@@ -206,7 +208,8 @@ export const buildAccessContext = async (payload: JWTPayload, database: Database
       ownGlobalRoleAssignmentIds: new Set(),
       protectedRoleIds,
       manageableApiKeyActorIds,
-      visibleApiKeyIds: await getVisibleApiKeyIds(database, ownActorId, manageableApiKeyActorIds),
+      manageableApiKeyIds,
+      visibleApiKeyIds: manageableApiKeyIds,
     };
   }
 
@@ -221,6 +224,7 @@ export const buildAccessContext = async (payload: JWTPayload, database: Database
 
   if (globalAdmin || !organizationAdmin) {
     const manageableApiKeyActorIds = globalAdmin ? await getManagedCredentialActors(database) : new Set<number>();
+    const manageableApiKeyIds = await getVisibleApiKeyIds(database, ownActorId, manageableApiKeyActorIds);
     return {
       enforcementEnabled: true,
       globalAdmin,
@@ -233,7 +237,8 @@ export const buildAccessContext = async (payload: JWTPayload, database: Database
       ownGlobalRoleAssignmentIds,
       protectedRoleIds,
       manageableApiKeyActorIds,
-      visibleApiKeyIds: await getVisibleApiKeyIds(database, ownActorId, manageableApiKeyActorIds),
+      manageableApiKeyIds,
+      visibleApiKeyIds: manageableApiKeyIds,
     };
   }
 
@@ -262,6 +267,13 @@ export const buildAccessContext = async (payload: JWTPayload, database: Database
   const actorIds = new Set([...userActorIds, ...applicationActorIds, ...deviceActorIds]);
   const apiKeys = await listByIds(database, 'api key', 'is of-actor', actorIds);
   const apiKeyIds = ids(apiKeys, 'id');
+  const manageableApiKeyIds = ids(
+    apiKeys.filter((apiKey) => {
+      const actorId = numberField(apiKey, 'is of-actor');
+      return actorId != null && (actorId === ownActorId || manageableApiKeyActorIds.has(actorId));
+    }),
+    'id',
+  );
 
   const [userRoles, userPermissions, userPublicKeys, directApplicationAccess, apiKeyRoles, apiKeyPermissions] =
     await Promise.all([
@@ -288,7 +300,8 @@ export const buildAccessContext = async (payload: JWTPayload, database: Database
     ownGlobalRoleAssignmentIds,
     protectedRoleIds,
     manageableApiKeyActorIds,
-    visibleApiKeyIds: await getVisibleApiKeyIds(database, ownActorId, manageableApiKeyActorIds),
+    manageableApiKeyIds,
+    visibleApiKeyIds: manageableApiKeyIds,
     allowedIds: {
       'actor': actorIds,
       'api key': apiKeyIds,
@@ -324,6 +337,12 @@ export const authorizeResource = (
   }
   if (method === 'POST' && ['actor', 'organization', 'user'].includes(resource)) {
     throw new Error('Organization administrators cannot create this resource through direct database access.');
+  }
+  if (method === 'DELETE' && ['api key-has-permission', 'api key-has-role', 'user-has-permission'].includes(resource)) {
+    throw new Error('Only global administrators can delete direct permission and API key privilege assignments.');
+  }
+  if (resource === 'api key' && ['PATCH', 'DELETE'].includes(method)) {
+    return context.manageableApiKeyIds;
   }
   return context.allowedIds[resource] ?? new Set();
 };

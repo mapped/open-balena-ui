@@ -118,6 +118,21 @@ test('organization administrators are restricted to their organization records',
   assert.deepEqual([...authorizeResource(context, 'user', 'GET')!].sort(), [2, 4]);
   assert.deepEqual([...authorizeResource(context, 'organization', 'GET')!], [401]);
   assert.deepEqual([...authorizeResource(context, 'organization membership', 'GET')!].sort(), [301, 302]);
+  assert.deepEqual([...authorizeResource(context, 'api key', 'GET')!].sort(), [202, 203, 204, 205]);
+  assert.deepEqual([...authorizeResource(context, 'api key', 'PATCH')!].sort(), [202, 204, 205]);
+  assert.deepEqual([...authorizeResource(context, 'api key', 'DELETE')!].sort(), [202, 204, 205]);
+  assert.throws(
+    () => authorizeResource(context, 'api key-has-role', 'DELETE'),
+    /Only global administrators can delete/,
+  );
+  assert.throws(
+    () => authorizeResource(context, 'api key-has-permission', 'DELETE'),
+    /Only global administrators can delete/,
+  );
+  assert.throws(
+    () => authorizeResource(context, 'user-has-permission', 'DELETE'),
+    /Only global administrators can delete/,
+  );
   assert.doesNotThrow(() =>
     authorizeMutationBody(context, 'api key', 'POST', { 'key': 'new-device-key', 'is of-actor': 107 }),
   );

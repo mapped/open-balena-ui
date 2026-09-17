@@ -5,9 +5,6 @@ import createODataDataProvider, { ODATA_RESOURCES, type HttpClient } from './oda
 
 export type OpenBalenaDataProvider = DataProvider & {
   changePassword(params: { userId: number | string; password: string }): Promise<void>;
-  createCredentialActor(params: {
-    role: 'named-user-api-key' | 'device-api-key' | 'provisioning-api-key';
-  }): Promise<{ actorId: number }>;
 };
 
 export const DIRECT_DB_RESOURCES = new Set([
@@ -76,30 +73,58 @@ export const openBalenaDataProvider = (
         });
         return { data: json };
       }
+      if (resource === 'api key') {
+        const { json } = await httpClient('/admin-db/actions/create-api-key', {
+          method: 'POST',
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(params.data),
+        });
+        return { data: json };
+      }
+      if (resource === 'application' || resource === 'device') {
+        const { json } = await httpClient('/admin-db/actions/create-operational-resource', {
+          method: 'POST',
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ resource, data: params.data }),
+        });
+        return { data: json };
+      }
       return route(resource).create(resource, params);
     },
     update: async (resource, params) => route(resource).update(resource, params),
     updateMany: async (resource, params) => route(resource).updateMany(resource, params),
-    delete: async (resource, params) => route(resource).delete(resource, params),
-    deleteMany: async (resource, params) => route(resource).deleteMany(resource, params),
+    delete: async (resource, params) => {
+      if (resource === 'api key') {
+        const { json } = await httpClient('/admin-db/actions/delete-api-key', {
+          method: 'POST',
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ id: params.id }),
+        });
+        return { data: json };
+      }
+      return route(resource).delete(resource, params);
+    },
+    deleteMany: async (resource, params) => {
+      if (resource === 'api key') {
+        await Promise.all(
+          params.ids.map((id) =>
+            httpClient('/admin-db/actions/delete-api-key', {
+              method: 'POST',
+              headers: new Headers({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ id }),
+            }),
+          ),
+        );
+        return { data: params.ids };
+      }
+      return route(resource).deleteMany(resource, params);
+    },
     changePassword: async ({ userId, password }) => {
       await httpClient('/admin-db/actions/change-password', {
         method: 'POST',
         headers: new Headers({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userId, password }),
       });
-    },
-    createCredentialActor: async ({ role }) => {
-      const { json } = await httpClient('/admin-db/actions/provision-credential-actor', {
-        method: 'POST',
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ role }),
-      });
-      const actorId = Number(json.actorId);
-      if (!Number.isInteger(actorId) || actorId <= 0) {
-        throw new Error('Credential actor provisioning returned an invalid actor ID.');
-      }
-      return { actorId };
     },
   };
 };

@@ -4,18 +4,6 @@ import { useDeleteDevice } from './device';
 import { useDeleteService } from '../lib/service';
 import { useDeleteApiKey } from './apiKey';
 import { deleteAllRelated } from './delete';
-import type { OpenBalenaDataProvider } from '../dataProvider/openBalenaDataProvider';
-
-export function useCreateFleet() {
-  const dataProvider = useDataProvider<OpenBalenaDataProvider>();
-
-  return async (data) => {
-    const { actorId } = await dataProvider.createCredentialActor({ role: 'provisioning-api-key' });
-    data.actor = actorId;
-    return data;
-  };
-}
-
 export function useDeleteFleet() {
   const dataProvider = useDataProvider();
   const deleteRelease = useDeleteRelease();

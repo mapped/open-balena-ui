@@ -23,6 +23,10 @@ import {
 import type { SelectChangeEvent } from '@mui/material';
 import { useGetList } from 'react-admin';
 import { getSemver } from './SemVerChip';
+import versions from '../versions';
+import environment from '../lib/reactAppEnv';
+
+const applicationClass = versions.optionalField('applicationIsOfClass', environment.REACT_APP_OPEN_BALENA_API_VERSION);
 
 export type OnlineStatus = 'all' | 'online' | 'offline';
 
@@ -147,7 +151,7 @@ export const DeviceFilterModal: React.FC<DeviceFilterModalProps> = ({
 
   // Fetch fleets based on selected device type (cached by react-query)
   const fleetsFilter = useMemo(() => {
-    const filter: Record<string, unknown> = { 'is of-class': 'fleet' };
+    const filter: Record<string, unknown> = applicationClass ? { [applicationClass]: 'fleet' } : {};
     if (localFilters.deviceTypeId) {
       filter['is for-device type'] = localFilters.deviceTypeId;
     }
