@@ -152,13 +152,13 @@ const ReleaseFieldContent: React.FC<{
 
   return (
     <RecordContextProvider value={augmentedRecord}>
-      <ReferenceField label='Current Release' source='is running-release' reference='release' target='id'>
+      <ReferenceField label='Current Release' source='is running-release' reference='release'>
         <SemVerChip icon={chipIcon} sx={{ position: 'relative', top: '-5px' }} withTooltip={false} />
       </ReferenceField>
 
       {record[source] &&
         (targetReleaseId !== undefined && targetReleaseId !== null ? (
-          <ReferenceField reference='release' target='id' source='should be running-release' link={false}>
+          <ReferenceField reference='release' source='should be running-release' link={false}>
             <TargetReleaseTooltip origin={origin}>
               <span
                 style={{
@@ -254,7 +254,7 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
   return (
     <List {...props} filters={deviceFilters} actions={<DeviceListActions />} pagination={<ExtendedPagination />}>
       <Datagrid rowClick={false} bulkActionButtons={<CustomBulkActionButtons />} size='medium'>
-        <ReferenceField label='Name' source='id' reference='device' target='id' link='show'>
+        <ReferenceField label='Name' source='id' reference='device' link='show'>
           <TextField source='device name' />
         </ReferenceField>
 
@@ -262,11 +262,11 @@ export const DeviceList: React.FC<ListProps<any>> = (props) => {
 
         <ReleaseField label='Current Release' source='is running-release' />
 
-        <ReferenceField label='Device Type' source='is of-device type' reference='device type' target='id' link={false}>
+        <ReferenceField label='Device Type' source='is of-device type' reference='device type' link={false}>
           <TextField source='slug' />
         </ReferenceField>
 
-        <ReferenceField label='Fleet' source='belongs to-application' reference='application' target='id'>
+        <ReferenceField label='Fleet' source='belongs to-application' reference='application'>
           <TextField source='app name' />
         </ReferenceField>
 

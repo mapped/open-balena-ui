@@ -143,7 +143,7 @@ export const ApiKeyList: React.FC = () => {
 
         <ReferenceManyField label='Roles' source='id' reference='api key-has-role' target='api key'>
           <SingleFieldList linkType={false}>
-            <ReferenceField source='role' reference='role' target='id'>
+            <ReferenceField source='role' reference='role'>
               <TextField source='name' />
             </ReferenceField>
           </SingleFieldList>

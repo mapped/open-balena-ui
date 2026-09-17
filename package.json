@@ -30,9 +30,9 @@
     "process": "^0.11.10",
     "prop-types": "^15.8.1",
     "query-string": "^9.3.1",
-    "ra-core": "^5.12.1",
+    "ra-core": "5.15.3",
     "react": "^19.2.3",
-    "react-admin": "^5.12.1",
+    "react-admin": "5.15.3",
     "react-dom": "^19.2.3",
     "react-final-form": "^7.0.0",
     "react-hook-form": "^7.65.0",
@@ -56,7 +56,6 @@
     "@types/react-dom": "^19.2.2",
     "@vercel/ncc": "^0.38.3",
     "@vitejs/plugin-react-swc": "^4.1.0",
-    "eslint-config-react-app": "^7.0.1",
     "prettier": "^3.6.2",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
@@ -76,12 +75,6 @@
     "test": "tsx --test src/dataProvider/*.test.ts src/versions/*.test.ts server/*.test.ts",
     "prettier": "prettier --write ."
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
   "browserslist": {
     "production": [
       ">0.2%",
@@ -93,5 +86,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "overrides": {
+    "query-string": "$query-string"
   }
 }

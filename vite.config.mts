@@ -3,6 +3,21 @@ import react from '@vitejs/plugin-react-swc';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const queryStringNamedExportsCompat = () => ({
+  name: 'query-string-named-exports-compat',
+  enforce: 'pre' as const,
+  transform(code: string, id: string) {
+    if (!id.includes('/node_modules/ra-') || !code.includes("from 'query-string'")) {
+      return null;
+    }
+    return code.replace(
+      /import \{ ([^}]+) \} from 'query-string';/g,
+      (_match, imports: string) =>
+        `import queryString from 'query-string';\nconst { ${imports.trim()} } = queryString;`,
+    );
+  },
+});
+
 export default defineConfig(({ mode }) => {
   const currentDir = dirname(fileURLToPath(import.meta.url));
   const rawEnv = loadEnv(mode, process.cwd(), '');
@@ -10,7 +25,7 @@ export default defineConfig(({ mode }) => {
   const previewPort = Number(rawEnv.PORT ?? process.env.PORT ?? 4173);
 
   return {
-    plugins: [react()],
+    plugins: [queryStringNamedExportsCompat(), react()],
     envPrefix: ['REACT_APP_', 'VITE_'],
     resolve: {
       alias: {

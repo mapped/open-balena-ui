@@ -26,14 +26,14 @@ export const ImageEnvVarList: React.FC = () => {
       <Datagrid size='medium' rowClick={false}>
         <TextField label='Image' source='release image' />
 
-        <ReferenceField label='Service' source='release image' reference='image' target='id' link={false}>
-          <ReferenceField source='is a build of-service' reference='service' target='id' link={false}>
+        <ReferenceField label='Service' source='release image' reference='image' link={false}>
+          <ReferenceField source='is a build of-service' reference='service' link={false}>
             <TextField source='service name' />
           </ReferenceField>
         </ReferenceField>
 
-        <ReferenceField label='Release Rev.' source='release image' reference='image' target='id' link={false}>
-          <ReferenceField source='id' reference='image-is part of-release' target='image' link={false}>
+        <ReferenceField label='Release Rev.' source='release image' reference='image' link={false}>
+          <ReferenceField source='id' reference='image-is part of-release' link={false}>
             <ReferenceField source='is part of-release' reference='release' link={false}>
               <SemVerChip />
             </ReferenceField>

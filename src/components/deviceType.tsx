@@ -35,7 +35,6 @@ export const DeviceTypeList: React.FC = () => {
           label='CPU Architecture'
           source='is of-cpu architecture'
           reference='cpu architecture'
-          target='id'
         >
           <TextField source='slug' />
         </ReferenceField>
@@ -50,7 +49,7 @@ export const DeviceTypeList: React.FC = () => {
           <></>
         )}
 
-        <ReferenceField label='Device Family' source='belongs to-device family' reference='device family' target='id'>
+        <ReferenceField label='Device Family' source='belongs to-device family' reference='device family'>
           <TextField source='slug' />
         </ReferenceField>
 

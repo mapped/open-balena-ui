@@ -63,7 +63,7 @@ const FleetTargetReleaseCell: React.FC<{ record: Record<string, any> }> = ({ rec
 
   return (
     <RecordContextProvider value={augmentedRecord}>
-      <ReferenceField source={targetField} reference='release' target='id' link={false}>
+      <ReferenceField source={targetField} reference='release' link={false}>
         <TargetReleaseTooltip origin={origin}>
           <SemVerChip icon={chipIcon} withTooltip={false} />
         </TargetReleaseTooltip>
@@ -98,13 +98,13 @@ export const FleetList: React.FC = () => {
       >
         <TextField label='Name' source='app name' />
 
-        <ReferenceField label='Organization' source='organization' reference='organization' target='id'>
+        <ReferenceField label='Organization' source='organization' reference='organization'>
           <TextField source='name' />
         </ReferenceField>
 
         <TextField label='Slug' source='slug' />
 
-        <ReferenceField label='Device Type' source='is for-device type' reference='device type' target='id'>
+        <ReferenceField label='Device Type' source='is for-device type' reference='device type'>
           <TextField source='slug' />
         </ReferenceField>
 

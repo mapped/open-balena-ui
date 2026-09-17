@@ -47,7 +47,7 @@ export const UserList: React.FC = () => {
 
         <ReferenceManyField label='Organizations' source='id' reference='organization membership' target='user'>
           <SingleFieldList linkType={false}>
-            <ReferenceField source='is member of-organization' reference='organization' target='id'>
+            <ReferenceField source='is member of-organization' reference='organization'>
               <TextField source='name' />
             </ReferenceField>
           </SingleFieldList>
@@ -55,7 +55,7 @@ export const UserList: React.FC = () => {
 
         <ReferenceManyField label='Roles' source='id' reference='user-has-role' target='user'>
           <SingleFieldList linkType={false}>
-            <ReferenceField source='role' reference='role' target='id'>
+            <ReferenceField source='role' reference='role'>
               <TextField source='name' />
             </ReferenceField>
           </SingleFieldList>

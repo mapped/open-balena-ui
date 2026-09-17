@@ -23,7 +23,7 @@ export const UserKeysList: React.FC = () => {
   return (
     <List>
       <Datagrid size='medium' rowClick={false}>
-        <ReferenceField label='User' source='user' reference='user' target='id'>
+        <ReferenceField label='User' source='user' reference='user'>
           <TextField source='username' />
         </ReferenceField>
 

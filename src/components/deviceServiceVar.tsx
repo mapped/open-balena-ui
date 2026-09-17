@@ -58,17 +58,16 @@ export const DeviceServiceVarList: React.FC = () => {
   return (
     <List {...listProps}>
       <Datagrid size='medium' rowClick={false}>
-        <ReferenceField label='Device' source='service install' reference='service install' target='id'>
-          <ReferenceField source='device' reference='device' target='id'>
+        <ReferenceField label='Device' source='service install' reference='service install'>
+          <ReferenceField source='device' reference='device'>
             <TextField source='device name' />
           </ReferenceField>
         </ReferenceField>
 
-        <ReferenceField label='Service' source='service install' reference='service install' target='id' link={false}>
+        <ReferenceField label='Service' source='service install' reference='service install' link={false}>
           <ReferenceField
             source='installs-service'
             reference='service'
-            target='id'
             link={(record, reference) => `/${reference}/${record['installs-service']}`}
           >
             <TextField source='service name' />

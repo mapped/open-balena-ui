@@ -27,7 +27,6 @@ export const DeviceFamilyList: React.FC = () => {
           label='Manufacturer'
           source='is manufactured by-device manufacturer'
           reference='device manufacturer'
-          target='id'
           link={false}
         >
           <TextField source='name' />

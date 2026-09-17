@@ -62,7 +62,6 @@ export const ReleaseList: React.FC = (props) => {
           label='Fleet'
           source='belongs to-application'
           reference='application'
-          target='id'
           sortable={false}
         >
           <TextField source='app name' />
@@ -71,7 +70,6 @@ export const ReleaseList: React.FC = (props) => {
           label='Host'
           source='belongs to-application'
           reference='application'
-          target='id'
           sortable={false}
           link={false}
         >

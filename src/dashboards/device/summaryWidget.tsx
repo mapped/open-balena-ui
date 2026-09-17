@@ -72,7 +72,7 @@ const TargetRelease: React.FC = () => {
 
   return (
     <RecordContextProvider value={augmentedRecord}>
-      <ReferenceField source={targetField} reference='release' target='id' link={false}>
+      <ReferenceField source={targetField} reference='release' link={false}>
         <TargetReleaseTooltip origin={origin}>
           <SemVerChip icon={<TargetReleaseIcon origin={origin} fontSize='small' />} withTooltip={false} />
         </TargetReleaseTooltip>
@@ -123,7 +123,7 @@ const SummaryWidget: React.FC = () => {
 
               <td>
                 <Label>Device Type</Label>
-                <ReferenceField source='is of-device type' reference='device type' target='id' link={false}>
+                <ReferenceField source='is of-device type' reference='device type' link={false}>
                   <TextField source='slug' />
                 </ReferenceField>
               </td>
@@ -166,7 +166,7 @@ const SummaryWidget: React.FC = () => {
 
               <td>
                 <Label>Current Release</Label>
-                <ReferenceField source='is running-release' reference='release' target='id'>
+                <ReferenceField source='is running-release' reference='release'>
                   <SemVerChip />
                 </ReferenceField>
               </td>

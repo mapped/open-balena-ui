@@ -130,12 +130,11 @@ export const DeviceServices: React.FC<DeviceServicesProps> = ({ device }) => {
           }}
         />
 
-        <ReferenceField label='Image' source='installs-image' reference='image' target='id' link={false}>
+        <ReferenceField label='Image' source='installs-image' reference='image' link={false}>
           <ReferenceField
             label='Image'
             source='is a build of-service'
             reference='service'
-            target='id'
             link={(record, reference) => `/${reference}/${record['is a build of-service']}`}
           >
             <TextField source='service name' />
@@ -144,7 +143,7 @@ export const DeviceServices: React.FC<DeviceServicesProps> = ({ device }) => {
 
         <TextField label='Status' source='status' />
 
-        <ReferenceField label='Release' source='is provided by-release' reference='release' target='id'>
+        <ReferenceField label='Release' source='is provided by-release' reference='release'>
           <SemVerChip />
         </ReferenceField>
 

@@ -105,7 +105,7 @@ const ControlsWidget: React.FC = () => {
       <Box maxWidth='40em'>
         <p style={{ marginBottom: '5px' }}>
           <b>Fleet: </b>
-          <ReferenceField source='belongs to-application' reference='application' target='id'>
+          <ReferenceField source='belongs to-application' reference='application'>
             <TextField source='app name' style={{ fontSize: '12pt' }} />
           </ReferenceField>
         </p>

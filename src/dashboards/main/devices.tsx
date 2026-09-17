@@ -76,7 +76,6 @@ export const DeviceCards: React.FC = () => (
                                   record={record}
                                   source='belongs to-application'
                                   reference='application'
-                                  target='id'
                                 >
                                   <ChipField
                                     icon={<GrainIcon />}
@@ -93,7 +92,6 @@ export const DeviceCards: React.FC = () => (
                                   record={record}
                                   source='is of-device type'
                                   reference='device type'
-                                  target='id'
                                 >
                                   <ChipField
                                     icon={<DeveloperBoardIcon />}

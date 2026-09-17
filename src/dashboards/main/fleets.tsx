@@ -82,7 +82,6 @@ export const FleetCards: React.FC = () => (
                                   record={record}
                                   source='organization'
                                   reference='organization'
-                                  target='id'
                                 >
                                   <ChipField
                                     icon={<CorporateFareIcon />}
@@ -99,7 +98,6 @@ export const FleetCards: React.FC = () => (
                                   record={record}
                                   source='is for-device type'
                                   reference='device type'
-                                  target='id'
                                 >
                                   <ChipField
                                     icon={<DeveloperBoardIcon />}
@@ -133,7 +131,6 @@ export const FleetCards: React.FC = () => (
                                   label='Target Rel.'
                                   source={isPinnedOnRelease}
                                   reference='release'
-                                  target='id'
                                 >
                                   <FunctionField label='API Key' render={(record) => getSemver(record)} />
                                 </ReferenceField>

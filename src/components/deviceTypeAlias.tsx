@@ -21,7 +21,7 @@ export const DeviceTypeAliasList: React.FC = () => {
   return (
     <List title='Device Type Aliases'>
       <Datagrid size='medium' rowClick={false}>
-        <ReferenceField label='Device Type' source='device type' reference='device type' target='id'>
+        <ReferenceField label='Device Type' source='device type' reference='device type'>
           <TextField source='slug' />
         </ReferenceField>
 
