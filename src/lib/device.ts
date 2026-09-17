@@ -1,6 +1,7 @@
 import { useDataProvider } from 'react-admin';
 import { useDeleteApiKey } from './apiKey';
 import { deleteAllRelated } from './delete';
+import type { OpenBalenaDataProvider } from '../dataProvider/openBalenaDataProvider';
 
 export function useCreateDevice() {
   return (data) => {
@@ -79,7 +80,7 @@ export function useModifyDevice() {
 }
 
 export function useDeleteDevice() {
-  const dataProvider = useDataProvider();
+  const dataProvider = useDataProvider<OpenBalenaDataProvider>();
   const deleteApiKey = useDeleteApiKey();
 
   return async (device) => {
@@ -110,8 +111,11 @@ export function useDeleteDevice() {
       { remoteResource: 'image install', remoteField: 'device', localField: 'id' },
     ];
     await deleteAllRelated(dataProvider, device, relatedIndirectLookups, relatedDirectLookups);
-    await dataProvider.delete('device', { id: device['id'] });
-    await dataProvider.delete('actor', { id: device['actor'] });
+    await dataProvider.deleteResourceActor({
+      resource: 'device',
+      id: device['id'],
+      actorId: device['actor'],
+    });
     return Promise.resolve();
   };
 }

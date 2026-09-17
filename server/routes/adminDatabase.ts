@@ -185,6 +185,14 @@ const requireObjectBody = (body: unknown, operation: string): Record<string, unk
   return body as Record<string, unknown>;
 };
 
+const requirePositiveId = (value: unknown, field: string): number => {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error(`${field} must be a positive numeric ID.`);
+  }
+  return id;
+};
+
 router.post('/admin-db/actions/change-password', ...dosProtect, authorize, async (req, res) => {
   try {
     const authorization = req.headers.authorization!;
@@ -414,6 +422,88 @@ router.post('/admin-db/actions/delete-api-key', ...dosProtect, authorize, async 
     }
     await deleteApiKeyRecord(authorization, apiKeyId);
     res.json({ id: apiKeyId });
+  } catch (error) {
+    sendDenied(res, error);
+  }
+});
+
+router.post('/admin-db/actions/delete-resource-actor', ...dosProtect, authorize, async (req, res) => {
+  try {
+    const authorization = req.headers.authorization!;
+    const context = await buildAccessContext((res.locals as AuthorizedLocals).auth, databaseReader(authorization));
+    const body = requireObjectBody(req.body, 'Resource deletion');
+    const resource = String(body.resource);
+    const id = requirePositiveId(body.id, 'Resource ID');
+    const actorId = requirePositiveId(body.actorId, 'Actor ID');
+    if (!['application', 'device', 'user'].includes(resource)) {
+      throw new Error('Only application, device, and user actor cleanup is supported.');
+    }
+
+    const records = await databaseReader(authorization).list(resource, new URLSearchParams({ id: `eq.${id}` }));
+    const record = records[0];
+    if (records.length !== 1 || Number(record?.actor) !== actorId) {
+      throw new Error('The resource does not exist or does not belong to the supplied actor.');
+    }
+
+    if (resource === 'user') {
+      const allowedIds = authorizeResource(context, 'user', 'DELETE');
+      if (allowedIds && !allowedIds.has(id)) {
+        throw new Error('The user is outside the administrator scope.');
+      }
+      authorizeSelfLockoutMutation(context, 'user', 'DELETE', { id: `eq.${id}` });
+    } else if (
+      context.enforcementEnabled &&
+      !context.globalAdmin &&
+      (!context.organizationAdmin ||
+        (resource === 'application'
+          ? !context.allowedApplicationIds.has(id)
+          : !context.allowedApplicationIds.has(Number(record['belongs to-application']))))
+    ) {
+      throw new Error(`The ${resource} is outside the administrator scope.`);
+    }
+
+    if (resource === 'user') {
+      const userQuery = new URLSearchParams({ user: `eq.${id}` });
+      for (const relatedResource of [
+        'user-has-direct access to-application',
+        'user-has-permission',
+        'user-has-public key',
+        'user-has-role',
+        'organization membership',
+      ]) {
+        const relatedResponse = await fetch(
+          `${getPostgrestUrl()}/${encodeURIComponent(relatedResource)}?${userQuery}`,
+          {
+            method: 'DELETE',
+            headers: requestHeaders(authorization),
+          },
+        );
+        if (!relatedResponse.ok) {
+          throw new UpstreamRequestError(`Unable to clean up ${relatedResource} records (${relatedResponse.status}).`);
+        }
+      }
+    }
+
+    const parentUrl =
+      resource === 'user'
+        ? `${getPostgrestUrl()}/${encodeURIComponent(resource)}?id=eq.${id}`
+        : `${getOpenBalenaApiUrl()}/${getODataVersion()}/${resource}(${id})`;
+    const parentResponse = await fetch(parentUrl, {
+      method: 'DELETE',
+      headers: requestHeaders(authorization, { Accept: 'application/json' }),
+    });
+    if (!parentResponse.ok) {
+      throw new UpstreamRequestError(`Unable to delete ${resource} (${parentResponse.status}).`);
+    }
+
+    const actorResponse = await fetch(`${getPostgrestUrl()}/${encodeURIComponent('actor')}?id=eq.${actorId}`, {
+      method: 'DELETE',
+      headers: requestHeaders(authorization),
+    });
+    if (!actorResponse.ok) {
+      throw new UpstreamRequestError(`Unable to delete the ${resource} actor (${actorResponse.status}).`);
+    }
+    res.json({ id });
   } catch (error) {
     sendDenied(res, error);
   }

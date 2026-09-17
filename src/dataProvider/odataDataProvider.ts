@@ -119,15 +119,26 @@ const legacyArrayValue = (value: unknown): unknown[] | undefined => {
 };
 
 const fullTextFilter = (key: string, value: unknown): string | undefined => {
-  if (!key.startsWith('#') || typeof value !== 'string' || !value.trim()) {
+  if (!key.startsWith('#')) {
     return undefined;
   }
   const [fieldList, operator = 'contains'] = key.slice(1).split('@');
   const fields = fieldList.split(',').filter(Boolean);
-  const words = value.trim().split(/\s+/);
   if (!fields.length) {
     return undefined;
   }
+  if (typeof value !== 'string') {
+    return operator === 'eq'
+      ? group(
+          fields.map((field) => comparison(field, operator, value)),
+          'or',
+        )
+      : undefined;
+  }
+  if (!value.trim()) {
+    return undefined;
+  }
+  const words = value.trim().split(/\s+/);
   return group(
     words.map((word) =>
       group(

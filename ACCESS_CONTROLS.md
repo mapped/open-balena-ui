@@ -73,8 +73,9 @@ global-admin-only.
 
 Organization administrators may read, update, and delete existing scoped records and create scoped join records when
 every referenced ID is already in scope. They can create API keys for existing in-scope fleet/device actors. They cannot
-create users, actors, or organizations through the current direct-database workflow. Those workflows start with unscoped
-records and require a future transactional server endpoint to bind the new records to an organization safely.
+create users, actors, or organizations through the current direct-database workflow, and cannot delete whole user
+records because a user may have relationships in other organizations. Those workflows start with unscoped records and
+require a future transactional server endpoint to bind new records to an organization safely.
 
 Only global administrators may assign `global-admin` or `organization-admin`, direct user permissions, or API-key
 roles/permissions. Protected administrator-role assignments and global-administrator user records are excluded from
@@ -115,9 +116,11 @@ changes.
 User creation uses `/admin-db/actions/create-user`; password hashing, JWT-secret generation, and named-user credential
 provisioning all occur on the UI server. Device and fleet creation use `/admin-db/actions/create-operational-resource`,
 which provisions the credential actor and performs the open-balena-api write in one server workflow. If the API write
-fails, the newly created role assignment, API key, and actor are removed. Human credential material is never returned to
-the administrator's browser. User, device, and fleet creation are global-admin-only; organization administrators may
-create and maintain additional keys only for existing fleet/device actors already in their organization scope.
+fails, the newly created role assignment, API key, and actor are removed. User, fleet, and device deletion uses
+`/admin-db/actions/delete-resource-actor`, which validates the parent and actor against the pre-delete authorization
+scope before deleting the parent and cleaning up its actor. Human credential material is never returned to the
+administrator's browser. User, device, and fleet creation are global-admin-only; organization administrators may create
+and maintain additional keys only for existing fleet/device actors already in their organization scope.
 
 ## Deployment checklist
 

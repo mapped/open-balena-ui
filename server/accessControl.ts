@@ -338,6 +338,9 @@ export const authorizeResource = (
   if (method === 'POST' && ['actor', 'organization', 'user'].includes(resource)) {
     throw new Error('Organization administrators cannot create this resource through direct database access.');
   }
+  if (method === 'DELETE' && resource === 'user') {
+    throw new Error('Only global administrators can delete users.');
+  }
   if (method === 'DELETE' && ['api key-has-permission', 'api key-has-role', 'user-has-permission'].includes(resource)) {
     throw new Error('Only global administrators can delete direct permission and API key privilege assignments.');
   }

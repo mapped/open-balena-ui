@@ -52,6 +52,9 @@ the API write fails, the server removes the newly created role assignment, API k
 also created by a server action using cryptographically random material after validating the target actor. Human-user
 key material is not returned to the administrator's browser.
 
+User, fleet, and device deletion also uses a coordinated server action. It validates the parent record and actor against
+the administrator's scope before deleting the parent, preserving verified ownership for the subsequent actor cleanup.
+
 These requests pass through the UI server's `/admin-db` authorization proxy and retain the authenticated JWT, but they
 still **do not gain open-balena-api ACL enforcement**. The PostgREST service must not be publicly reachable. Deploy it
 on an internal network, restrict database credentials to the required schema, use TLS, and audit all writes. See

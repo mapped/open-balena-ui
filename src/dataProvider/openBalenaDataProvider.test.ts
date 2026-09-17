@@ -168,3 +168,20 @@ test('hybrid provider deletes API keys in bulk through the scoped server action'
     ],
   );
 });
+
+test('hybrid provider coordinates resource and actor deletion through the server', async () => {
+  const requests: Array<{ url: string; options?: Options }> = [];
+  const provider = openBalenaDataProvider('https://api.example.test', async (url, options) => {
+    requests.push({ url, options });
+    return response({ id: 7 });
+  });
+
+  await provider.deleteResourceActor({ resource: 'device', id: 7, actorId: 70 });
+
+  assert.equal(requests[0].url, '/admin-db/actions/delete-resource-actor');
+  assert.deepEqual(JSON.parse(String(requests[0].options?.body)), {
+    resource: 'device',
+    id: 7,
+    actorId: 70,
+  });
+});

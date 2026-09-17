@@ -142,6 +142,7 @@ test('organization administrators are restricted to their organization records',
   );
   assert.throws(() => authorizeResource(context, 'role', 'GET'), /Global administrator/);
   assert.throws(() => authorizeResource(context, 'user', 'POST'), /cannot create/);
+  assert.throws(() => authorizeResource(context, 'user', 'DELETE'), /Only global administrators can delete users/);
 });
 
 test('ordinary users cannot access direct database resources after activation', async () => {

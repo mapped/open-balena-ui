@@ -4,8 +4,9 @@ import { useDeleteDevice } from './device';
 import { useDeleteService } from '../lib/service';
 import { useDeleteApiKey } from './apiKey';
 import { deleteAllRelated } from './delete';
+import type { OpenBalenaDataProvider } from '../dataProvider/openBalenaDataProvider';
 export function useDeleteFleet() {
-  const dataProvider = useDataProvider();
+  const dataProvider = useDataProvider<OpenBalenaDataProvider>();
   const deleteRelease = useDeleteRelease();
   const deleteDevice = useDeleteDevice();
   const deleteService = useDeleteService();
@@ -43,8 +44,11 @@ export function useDeleteFleet() {
       { remoteResource: 'application tag', remoteField: 'application', localField: 'id' },
     ];
     await deleteAllRelated(dataProvider, fleet, relatedIndirectLookups, relatedDirectLookups);
-    await dataProvider.delete('application', { id: fleet['id'] });
-    await dataProvider.delete('actor', { id: fleet['actor'] });
+    await dataProvider.deleteResourceActor({
+      resource: 'application',
+      id: fleet['id'],
+      actorId: fleet['actor'],
+    });
     return Promise.resolve();
   };
 }

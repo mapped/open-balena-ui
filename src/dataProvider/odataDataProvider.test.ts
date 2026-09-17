@@ -34,6 +34,13 @@ test('buildODataFilter accepts legacy parenthesized values for in filters', () =
   );
 });
 
+test('buildODataFilter accepts numeric multi-field equality filters', () => {
+  assert.equal(
+    buildODataFilter({ '#is pinned on-release,should be running-release@eq': 42 }),
+    '(is_pinned_on__release eq 42 or should_be_running__release eq 42)',
+  );
+});
+
 test('extractCollection supports modern and legacy OData response envelopes', () => {
   assert.deepEqual(extractCollection({ 'value': [{ id: 1 }], '@odata.count': 12 }), {
     items: [{ id: 1 }],

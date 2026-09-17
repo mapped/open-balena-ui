@@ -5,6 +5,11 @@ import createODataDataProvider, { ODATA_RESOURCES, type HttpClient } from './oda
 
 export type OpenBalenaDataProvider = DataProvider & {
   changePassword(params: { userId: number | string; password: string }): Promise<void>;
+  deleteResourceActor(params: {
+    resource: 'application' | 'device' | 'user';
+    id: number | string;
+    actorId: number | string;
+  }): Promise<void>;
 };
 
 export const DIRECT_DB_RESOURCES = new Set([
@@ -124,6 +129,13 @@ export const openBalenaDataProvider = (
         method: 'POST',
         headers: new Headers({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userId, password }),
+      });
+    },
+    deleteResourceActor: async ({ resource, id, actorId }) => {
+      await httpClient('/admin-db/actions/delete-resource-actor', {
+        method: 'POST',
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ resource, id, actorId }),
       });
     },
   };
