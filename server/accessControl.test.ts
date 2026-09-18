@@ -168,13 +168,16 @@ test('organization mutations reject cross-organization references', async () => 
   );
   assert.throws(
     () => authorizeMutationBody(context, 'api key', 'PATCH', { 'is of-actor': 999 }),
-    /outside the administrator's organization scope/,
+    /actor ownership cannot be changed/,
   );
   assert.throws(
     () => authorizeMutationBody(context, 'api key', 'POST', { key: 'missing-actor' }),
     /require an in-scope actor/,
   );
-  assert.throws(() => authorizeMutationBody(context, 'user', 'PATCH', { actor: 999 }), /cannot rebind user actors/);
+  assert.throws(
+    () => authorizeMutationBody(context, 'user', 'PATCH', { actor: 999 }),
+    /actor ownership cannot be changed/,
+  );
   assert.throws(
     () => authorizeMutationBody(context, 'user-has-role', 'POST', { user: 2, role: 1 }),
     /Only global administrators can assign administrator roles/,
@@ -198,6 +201,22 @@ test('API key actor validation applies to legacy and global administrators', asy
   );
   assert.doesNotThrow(() =>
     authorizeMutationBody(global, 'api key', 'POST', { 'key': 'device-key', 'is of-actor': 108 }),
+  );
+  assert.throws(
+    () => authorizeMutationBody(legacy, 'api key', 'PATCH', { 'is of-actor': 102 }),
+    /actor ownership cannot be changed/,
+  );
+  assert.throws(
+    () => authorizeMutationBody(global, 'api key', 'PATCH', { 'is of-actor': 101 }),
+    /actor ownership cannot be changed/,
+  );
+  assert.throws(
+    () => authorizeMutationBody(legacy, 'user', 'PATCH', { actor: 104 }),
+    /actor ownership cannot be changed/,
+  );
+  assert.throws(
+    () => authorizeMutationBody(global, 'user', 'PATCH', { actor: 104 }),
+    /actor ownership cannot be changed/,
   );
 });
 
@@ -266,12 +285,15 @@ test('global administrators cannot remove their own access', async () => {
   assert.doesNotThrow(() => authorizeSelfLockoutMutation(context, 'user-has-role', 'DELETE', { id: 'eq.12' }));
 });
 
-test('password changes are restricted to self and administratively scoped users', async () => {
+test('password changes are restricted to global administrators and organization-admin self-service', async () => {
+  const globalAdmin = await buildAccessContext({ id: 1 }, reader());
   const organizationAdmin = await buildAccessContext({ id: 2 }, reader());
   const ordinaryUser = await buildAccessContext({ id: 4 }, reader());
   assert.throws(() => authorizePasswordChange(ordinaryUser, 4), /Administrator access/);
-  assert.doesNotThrow(() => authorizePasswordChange(organizationAdmin, 4));
-  assert.throws(() => authorizePasswordChange(organizationAdmin, 3), /outside the administrator scope/);
+  assert.doesNotThrow(() => authorizePasswordChange(globalAdmin, 4));
+  assert.doesNotThrow(() => authorizePasswordChange(organizationAdmin, 2));
+  assert.throws(() => authorizePasswordChange(organizationAdmin, 4), /only their own password/);
+  assert.throws(() => authorizePasswordChange(organizationAdmin, 3), /only their own password/);
 });
 
 test('credential actor provisioning is limited to global and legacy administrators', async () => {

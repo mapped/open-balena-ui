@@ -9,8 +9,10 @@ import {
   List,
   ReferenceField,
   ReferenceInput,
+  ReferenceManyField,
   SelectInput,
   SimpleForm,
+  SingleFieldList,
   TextField,
   TextInput,
   Toolbar,
@@ -33,11 +35,13 @@ export const ImageLabelList: React.FC = () => {
         </ReferenceField>
 
         <ReferenceField label='Release Rev.' source='release image' reference='image' link={false}>
-          <ReferenceField source='id' reference='image-is part of-release' link={false}>
-            <ReferenceField source='is part of-release' reference='release' link={false}>
-              <SemVerChip />
-            </ReferenceField>
-          </ReferenceField>
+          <ReferenceManyField source='id' reference='image-is part of-release' target='image'>
+            <SingleFieldList linkType={false}>
+              <ReferenceField source='is part of-release' reference='release' link={false}>
+                <SemVerChip />
+              </ReferenceField>
+            </SingleFieldList>
+          </ReferenceManyField>
         </ReferenceField>
 
         <TextField label='Name' source='label name' />

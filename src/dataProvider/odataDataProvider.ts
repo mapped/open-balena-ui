@@ -290,10 +290,21 @@ const entityId = (id: Identifier): string => {
   return typeof id === 'number' || /^-?\d+(?:\.\d+)?$/.test(value) ? value : `'${escapeString(value)}'`;
 };
 
-const requireRecord = (input: unknown, operation: string): RaRecord => {
+const requireRecord = (input: unknown, operation: string, expectedId?: Identifier): RaRecord => {
   const record = transformFromApi(input);
-  if (!record || typeof record !== 'object' || !('id' in record)) {
+  if (
+    !record ||
+    typeof record !== 'object' ||
+    !('id' in record) ||
+    !(
+      (typeof record.id === 'string' && record.id.length > 0) ||
+      (typeof record.id === 'number' && Number.isFinite(record.id))
+    )
+  ) {
     throw new Error(`open-balena-api ${operation} response did not contain a record with an id.`);
+  }
+  if (expectedId !== undefined && String(record.id) !== String(expectedId)) {
+    throw new Error(`open-balena-api ${operation} response contained an unexpected record id.`);
   }
   return record as RaRecord;
 };
@@ -398,9 +409,10 @@ export const createODataDataProvider = (
       );
       const response = extractSingle(json);
       return {
-        data: (response
-          ? transformFromApi(response)
-          : { ...(params.previousData ?? {}), ...params.data, id: params.id }) as RaRecord,
+        data:
+          response == null
+            ? ({ ...(params.previousData ?? {}), ...params.data, id: params.id } as RaRecord)
+            : requireRecord(response, 'update', params.id),
       };
     },
     updateMany: async (resource, params) => {
@@ -415,7 +427,12 @@ export const createODataDataProvider = (
         writeOptions('DELETE', undefined, params.signal),
       );
       const response = extractSingle(json);
-      return { data: (response ? transformFromApi(response) : (params.previousData ?? { id: params.id })) as RaRecord };
+      return {
+        data:
+          response == null
+            ? ((params.previousData ?? { id: params.id }) as RaRecord)
+            : requireRecord(response, 'delete', params.id),
+      };
     },
     deleteMany: async (resource, params) => {
       await Promise.all(

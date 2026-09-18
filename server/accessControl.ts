@@ -373,9 +373,15 @@ export const authorizeMutationBody = (
     throw new Error('Administrator mutations require an object body.');
   }
   const record = body as Record<string, unknown>;
+  if (resource === 'user' && ['PATCH', 'PUT'].includes(method) && 'actor' in record) {
+    throw new Error('User actor ownership cannot be changed through direct database access.');
+  }
   if (resource === 'api key') {
     if (method === 'POST' && !('is of-actor' in record)) {
       throw new Error('New API keys require an in-scope actor.');
+    }
+    if (['PATCH', 'PUT'].includes(method) && 'is of-actor' in record) {
+      throw new Error('API key actor ownership cannot be changed through direct database access.');
     }
     const credentialActorIds = new Set(context.manageableApiKeyActorIds);
     if (context.ownActorId != null) {
@@ -391,11 +397,6 @@ export const authorizeMutationBody = (
   const apiKeyIds = context.allowedIds['api key'] ?? new Set();
 
   switch (resource) {
-    case 'user':
-      if ('actor' in record) {
-        throw new Error('Organization administrators cannot rebind user actors.');
-      }
-      break;
     case 'api key':
       break;
     case 'organization membership':
@@ -500,12 +501,8 @@ export const authorizePasswordChange = (context: AccessContext, targetUserId: nu
   if (context.enforcementEnabled && !context.globalAdmin && !context.organizationAdmin) {
     throw new Error('Administrator access is required.');
   }
-  if (
-    targetUserId !== context.userId &&
-    !context.globalAdmin &&
-    !(context.organizationAdmin && context.allowedIds.user?.has(targetUserId))
-  ) {
-    throw new Error('The target user is outside the administrator scope.');
+  if (targetUserId !== context.userId && !context.globalAdmin) {
+    throw new Error('Organization administrators can change only their own password.');
   }
 };
 

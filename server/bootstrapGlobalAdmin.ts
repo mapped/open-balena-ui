@@ -119,7 +119,7 @@ export const bootstrapGlobalAdminFromEnvironment = async (): Promise<void> => {
   if (!Number.isInteger(userId) || userId <= 0) {
     throw new Error('OPEN_BALENA_BOOTSTRAP_USER_ID must be a positive numeric user ID.');
   }
-  const postgrestUrl = process.env.OPEN_BALENA_POSTGREST_URL ?? process.env.REACT_APP_OPEN_BALENA_POSTGREST_URL;
+  const postgrestUrl = process.env.OPEN_BALENA_POSTGREST_URL;
   const jwtSecret = process.env.OPEN_BALENA_JWT_SECRET;
   if (!postgrestUrl || !jwtSecret) {
     throw new Error(

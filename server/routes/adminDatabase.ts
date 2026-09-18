@@ -26,7 +26,7 @@ router.use(json());
 class UpstreamRequestError extends Error {}
 
 const getPostgrestUrl = (): string => {
-  const value = process.env.OPEN_BALENA_POSTGREST_URL ?? process.env.REACT_APP_OPEN_BALENA_POSTGREST_URL;
+  const value = process.env.OPEN_BALENA_POSTGREST_URL;
   if (!value) {
     throw new Error('OPEN_BALENA_POSTGREST_URL must be configured.');
   }

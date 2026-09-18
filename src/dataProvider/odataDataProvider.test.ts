@@ -192,3 +192,44 @@ test('provider rejects create responses without a generated id', async () => {
     /create response did not contain a record with an id/,
   );
 });
+
+test('provider rejects malformed non-empty update and delete responses', async () => {
+  const provider = createODataDataProvider('https://api.example.test', async () => response({}));
+
+  await assert.rejects(
+    provider.update('device', {
+      id: 7,
+      data: { 'device name': 'renamed' },
+      previousData: { 'id': 7, 'device name': 'old' },
+    }),
+    /update response did not contain a record with an id/,
+  );
+  await assert.rejects(
+    provider.delete('device', {
+      id: 7,
+      previousData: { 'id': 7, 'device name': 'old' },
+    }),
+    /delete response did not contain a record with an id/,
+  );
+});
+
+test('provider rejects invalid and mismatched mutation response ids', async () => {
+  const invalidIdProvider = createODataDataProvider('https://api.example.test', async () => response({ id: null }));
+  const mismatchedIdProvider = createODataDataProvider('https://api.example.test', async () => response({ id: 8 }));
+
+  await assert.rejects(
+    invalidIdProvider.update('device', {
+      id: 7,
+      data: { 'device name': 'renamed' },
+      previousData: { id: 7 },
+    }),
+    /update response did not contain a record with an id/,
+  );
+  await assert.rejects(
+    mismatchedIdProvider.delete('device', {
+      id: 7,
+      previousData: { id: 7 },
+    }),
+    /delete response contained an unexpected record id/,
+  );
+});
