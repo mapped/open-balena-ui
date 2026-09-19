@@ -19,6 +19,7 @@ import {
 import authorize, { type AuthorizedLocals } from '../middleware/authorize';
 import dosProtect from '../middleware/dosProtect';
 import { hashPassword } from '../../src/lib/password';
+import { isValidPassword } from '../../src/lib/passwordPolicy';
 
 const router = Router();
 router.use(json());
@@ -169,15 +170,6 @@ const sendDenied = (res: Response, error: unknown): void => {
   });
 };
 
-const validatePassword = (password: unknown): password is string =>
-  typeof password === 'string' &&
-  password.length >= 8 &&
-  password.length <= 1024 &&
-  /[a-z]/.test(password) &&
-  /[A-Z]/.test(password) &&
-  /\d/.test(password) &&
-  /[^A-Za-z0-9]/.test(password);
-
 const requireObjectBody = (body: unknown, operation: string): Record<string, unknown> => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new Error(`${operation} requires an object body.`);
@@ -199,17 +191,7 @@ router.post('/admin-db/actions/change-password', ...dosProtect, authorize, async
     const context = await buildAccessContext((res.locals as AuthorizedLocals).auth, databaseReader(authorization));
     const targetUserId = Number(req.body?.userId);
     const password = req.body?.password;
-    if (
-      !Number.isInteger(targetUserId) ||
-      targetUserId <= 0 ||
-      typeof password !== 'string' ||
-      password.length < 8 ||
-      password.length > 1024 ||
-      !/[a-z]/.test(password) ||
-      !/[A-Z]/.test(password) ||
-      !/\d/.test(password) ||
-      !/[^A-Za-z0-9]/.test(password)
-    ) {
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0 || !isValidPassword(password)) {
       throw new Error('A valid target user and password meeting the password policy are required.');
     }
     authorizePasswordChange(context, targetUserId);
@@ -356,7 +338,7 @@ router.post('/admin-db/actions/create-user', ...dosProtect, authorize, async (re
       !username.trim() ||
       typeof email !== 'string' ||
       !email.trim() ||
-      !validatePassword(password) ||
+      !isValidPassword(password) ||
       Object.keys(unexpected).length
     ) {
       throw new Error('A username, email, and password meeting the password policy are required.');

@@ -113,8 +113,8 @@ rejected so a create request cannot modify an existing out-of-scope record.
 
 Password changes use the dedicated `/admin-db/actions/change-password` action. Global administrators may reset user
 passwords; organization administrators may change only their own password because a user account and its password can
-span multiple organizations. Password hashing is performed on the UI server; generic user PATCH requests continue to
-reject password changes.
+span multiple organizations. Passwords are limited to 72 UTF-8 bytes so bcrypt cannot silently ignore a suffix. Password
+hashing is performed on the UI server; generic user PATCH requests continue to reject password changes.
 
 User creation uses `/admin-db/actions/create-user`; password hashing, JWT-secret generation, and named-user credential
 provisioning all occur on the UI server. Device and fleet creation use `/admin-db/actions/create-operational-resource`,

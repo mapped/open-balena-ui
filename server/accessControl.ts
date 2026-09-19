@@ -63,12 +63,83 @@ const numberField = (record: Record<string, unknown>, ...fields: string[]): numb
   return undefined;
 };
 
-export const queryReferencesCredential = (resource: string, query: unknown): boolean => {
-  const serialized = JSON.stringify(query);
-  if (resource === 'user') {
-    return /(?:password|jwt(?:_|%20|\+| )secret)/i.test(serialized);
+const CREDENTIAL_FIELDS: Record<string, string[]> = {
+  'api key': ['key'],
+  'user': ['password', 'jwt secret'],
+  'user-has-public key': ['public key'],
+};
+
+const decodeQueryIdentifier = (value: string): string => {
+  let decoded = value.replace(/\+/g, ' ');
+  for (let pass = 0; pass < 2; pass += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) {
+        break;
+      }
+      decoded = next;
+    } catch {
+      break;
+    }
   }
-  return resource === 'api key' && /(^|[^a-z0-9_])key([^a-z0-9_]|$)/i.test(serialized);
+  return decoded;
+};
+
+const normalizeQueryIdentifier = (value: string): string =>
+  decodeQueryIdentifier(value).toLowerCase().replace(/"/g, '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+
+const queryValues = (value: unknown): string[] =>
+  (Array.isArray(value) ? value : [value]).filter((entry): entry is string => typeof entry === 'string');
+
+const compoundExpressionFields = (expression: string): string[] => {
+  const fields: string[] = [];
+  const fieldExpression =
+    /(?:^|[,(])\s*([^(),.]+?)\s*\.(?:not\.)?(?:eq|neq|gt|gte|lt|lte|like|ilike|match|imatch|in|is|isdistinct|fts|plfts|phfts|wfts|cs|cd|ov|sl|sr|nxr|nxl|adj)\./gi;
+  for (const match of normalizeQueryIdentifier(expression).matchAll(fieldExpression)) {
+    fields.push(match[1].trim());
+  }
+  return fields;
+};
+
+const expressionReferencesField = (queryKey: string, expression: string, field: string): boolean => {
+  const normalizedExpression = normalizeQueryIdentifier(expression);
+  if (queryKey === 'select' || queryKey === 'columns') {
+    return normalizedExpression
+      .split(',')
+      .map((entry) => entry.split('::')[0].split(':').pop()?.trim())
+      .some((entry) => entry === field);
+  }
+  if (queryKey === 'order') {
+    return normalizedExpression
+      .split(',')
+      .map((entry) => entry.trim().split('.')[0])
+      .some((entry) => entry === field);
+  }
+  if (['or', 'and', 'not'].includes(queryKey)) {
+    return compoundExpressionFields(normalizedExpression).includes(field);
+  }
+  return false;
+};
+
+export const queryReferencesCredential = (resource: string, query: unknown): boolean => {
+  const credentialFields = CREDENTIAL_FIELDS[resource];
+  if (!credentialFields || !query || typeof query !== 'object' || Array.isArray(query)) {
+    return false;
+  }
+  return Object.entries(query).some(([rawKey, value]) => {
+    const queryKey = normalizeQueryIdentifier(rawKey);
+    const filterField = queryKey.split('@')[0];
+    const fieldSegments = filterField.split('.').map((segment) => segment.trim());
+    if (credentialFields.some((field) => fieldSegments.includes(field))) {
+      return true;
+    }
+    return (
+      ['select', 'columns', 'order', 'or', 'and', 'not'].includes(queryKey) &&
+      queryValues(value).some((expression) =>
+        credentialFields.some((field) => expressionReferencesField(queryKey, expression, field)),
+      )
+    );
+  });
 };
 
 export const queryUsesUnsafeEmbedding = (query: Record<string, unknown>): boolean =>

@@ -8,6 +8,7 @@ import type { RaRecord } from 'react-admin';
 import PasswordChecklist from 'react-password-checklist';
 import Row from '../ui/Row';
 import type { OpenBalenaDataProvider } from '../dataProvider/openBalenaDataProvider';
+import { isPasswordWithinBcryptLimit, maxPasswordBytes } from '../lib/passwordPolicy';
 
 type ChangePasswordButtonProps = ButtonProps;
 
@@ -30,7 +31,8 @@ const buildSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
 export const ChangePasswordButton: React.FC<ChangePasswordButtonProps> = ({ sx, ...buttonProps }) => {
   const [open, setOpen] = React.useState(false);
   const [newPassword, setPassword] = React.useState('');
-  const [isPasswordValid, setPasswordValid] = React.useState(false);
+  const [passwordChecklistValid, setPasswordChecklistValid] = React.useState(false);
+  const isPasswordValid = passwordChecklistValid && isPasswordWithinBcryptLimit(newPassword);
   const dataProvider = useDataProvider<OpenBalenaDataProvider>();
   const notify = useNotify();
   const record = useRecordContext<RaRecord>();
@@ -81,6 +83,7 @@ export const ChangePasswordButton: React.FC<ChangePasswordButtonProps> = ({ sx, 
                 name='new_password'
                 source='new_password'
                 placeholder='Enter new password'
+                validate={maxPasswordBytes}
                 onChange={(event) => setPassword(event.target.value)}
               />
               <Button
@@ -97,7 +100,7 @@ export const ChangePasswordButton: React.FC<ChangePasswordButtonProps> = ({ sx, 
               rules={['minLength', 'specialChar', 'number', 'capitalAndLowercase']}
               minLength={8}
               value={newPassword}
-              onChange={setPasswordValid}
+              onChange={setPasswordChecklistValid}
             />
           </SimpleForm>
         </DialogContent>

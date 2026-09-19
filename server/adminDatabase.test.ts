@@ -3,6 +3,7 @@ import test from 'node:test';
 import { compareSync } from 'bcrypt-ts';
 import { bodyContainsUserCredentials, preferUsesUpsert, requestHeaders } from './routes/adminDatabase';
 import { hashPassword } from '../src/lib/password';
+import { isValidPassword, passwordByteLength } from '../src/lib/passwordPolicy';
 
 test('PostgREST proxy preserves a caller-provided Accept header', () => {
   const headers = requestHeaders('Bearer token', {
@@ -23,6 +24,18 @@ test('password hashing preserves a verifiable bcrypt digest', () => {
 
   assert.match(hash, /^\$2[ab]\$/);
   assert.equal(compareSync(password, hash), true);
+});
+
+test('password policy and hashing reject values longer than 72 UTF-8 bytes', () => {
+  const maximumPassword = `Valid1!${'a'.repeat(65)}`;
+  const overlongAsciiPassword = `${maximumPassword}b`;
+  const overlongUnicodePassword = `Valid1!${'\u00e9'.repeat(33)}`;
+
+  assert.equal(passwordByteLength(maximumPassword), 72);
+  assert.equal(isValidPassword(maximumPassword), true);
+  assert.equal(isValidPassword(overlongAsciiPassword), false);
+  assert.equal(isValidPassword(overlongUnicodePassword), false);
+  assert.throws(() => hashPassword(overlongAsciiPassword), /cannot exceed 72 UTF-8 bytes/);
 });
 
 test('generic user mutations detect credential fields', () => {

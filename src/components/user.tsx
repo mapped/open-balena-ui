@@ -29,6 +29,7 @@ import ManagePermissions from '../ui/ManagePermissions';
 import ManageRoles from '../ui/ManageRoles';
 import Row from '../ui/Row';
 import PasswordChecklist from 'react-password-checklist';
+import { isPasswordWithinBcryptLimit, maxPasswordBytes } from '../lib/passwordPolicy';
 
 const CustomBulkActionButtons: React.FC<DeleteUserButtonProps> = (props) => (
   <React.Fragment>
@@ -78,11 +79,12 @@ const CustomCreateToolbar: React.FC<ToolbarProps & { saveDisabled?: boolean }> =
 
 export const UserCreate: React.FC<CreateProps> = (props) => {
   const [password, setPassword] = React.useState('');
-  const [password_valid, setPasswordValid] = React.useState(false);
+  const [passwordChecklistValid, setPasswordChecklistValid] = React.useState(false);
+  const passwordValid = passwordChecklistValid && isPasswordWithinBcryptLimit(password);
 
   return (
     <Create title='Create User' {...props}>
-      <SimpleForm toolbar={<CustomCreateToolbar saveDisabled={!password_valid} />}>
+      <SimpleForm toolbar={<CustomCreateToolbar saveDisabled={!passwordValid} />}>
         <TextInput
           name='email'
           source='email'
@@ -97,7 +99,7 @@ export const UserCreate: React.FC<CreateProps> = (props) => {
           <PasswordInput
             name='password'
             source='password'
-            validate={required()}
+            validate={[required(), maxPasswordBytes]}
             size='large'
             fullWidth={true}
             onChange={(e) => setPassword(e.target.value)}
@@ -109,7 +111,7 @@ export const UserCreate: React.FC<CreateProps> = (props) => {
           minLength={8}
           value={password}
           onChange={(isValid) => {
-            setPasswordValid(isValid);
+            setPasswordChecklistValid(isValid);
           }}
         />
       </SimpleForm>

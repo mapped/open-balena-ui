@@ -223,8 +223,22 @@ test('API key actor validation applies to legacy and global administrators', asy
 test('credential field detection blocks projected and filtered secret queries', () => {
   assert.equal(queryReferencesCredential('api key', { select: 'key' }), true);
   assert.equal(queryReferencesCredential('api key', { or: '(key.ilike.*abc*,name.ilike.*abc*)' }), true);
+  assert.equal(queryReferencesCredential('api key', { or: '(name.eq.prod.key.1)' }), false);
   assert.equal(queryReferencesCredential('api key', { select: 'id,name' }), false);
+  assert.equal(queryReferencesCredential('api key', { select: 'id,secret:key::text' }), true);
+  assert.equal(queryReferencesCredential('api key', { name: 'ilike.*device key*' }), false);
+  assert.equal(queryReferencesCredential('api key', { description: 'eq.primary api key' }), false);
+  assert.equal(queryReferencesCredential('api key', { '"key"': 'eq.secret' }), true);
+  assert.equal(queryReferencesCredential('api key', { '%2522key%2522': 'eq.secret' }), true);
   assert.equal(queryReferencesCredential('user', { select: 'id,jwt_secret' }), true);
+  assert.equal(queryReferencesCredential('user', { '"password"': 'like.$2b$*' }), true);
+  assert.equal(queryReferencesCredential('user', { order: 'password.nullsfirst' }), true);
+  assert.equal(queryReferencesCredential('user', { order: '"jwt_secret".desc' }), true);
+  assert.equal(queryReferencesCredential('user', { username: 'eq.jwt secret owner' }), false);
+  assert.equal(queryReferencesCredential('user-has-public key', { 'public key': 'eq.ssh-rsa AAA' }), true);
+  assert.equal(queryReferencesCredential('user-has-public key', { '%22public%20key%22': 'eq.ssh-rsa AAA' }), true);
+  assert.equal(queryReferencesCredential('user-has-public key', { order: 'public_key.desc' }), true);
+  assert.equal(queryReferencesCredential('user-has-public key', { name: 'ilike.*public key*' }), false);
 });
 
 test('administrator role creation is constrained around startup activation', async () => {
