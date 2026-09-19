@@ -35,6 +35,7 @@ test('hybrid provider selects v7 for newer servers and v6 for legacy servers', (
   assert.equal(resolveODataVersion('v25.2.8'), 'v7');
   assert.equal(resolveODataVersion('v26.0.0'), 'v7');
   assert.equal(resolveODataVersion('v25.2.8', '6'), 'v6');
+  assert.throws(() => resolveODataVersion('v25.2.8', 'v8'), /must be v6 or v7/);
 });
 
 test('hybrid provider routes identity resources through PostgREST', async () => {
@@ -74,6 +75,80 @@ test('hybrid provider uses the dedicated password action', async () => {
     userId: 7,
     password: 'Valid1!password',
   });
+});
+
+test('hybrid provider advertises query abort support and forwards explicit mutation signals', async () => {
+  const requests: Array<{ url: string; options?: Options }> = [];
+  const controller = new AbortController();
+  const provider = openBalenaDataProvider('https://api.example.test', async (url, options) => {
+    requests.push({ url, options });
+    return response({ id: 7 });
+  });
+
+  assert.equal(provider.supportAbortSignal, true);
+  await provider.create('user', {
+    data: { username: 'new-user', email: 'new@example.test', password: 'Valid1!password' },
+    meta: { signal: controller.signal },
+  });
+  await provider.delete('api key', {
+    id: 7,
+    meta: { signal: controller.signal },
+  });
+  await provider.update('device', {
+    id: 7,
+    data: { 'device name': 'renamed' },
+    previousData: { id: 7 },
+    meta: { signal: controller.signal },
+  });
+
+  assert.equal(requests[0].options?.signal, controller.signal);
+  assert.equal(requests[1].options?.signal, controller.signal);
+  assert.equal(requests[2].options?.signal, controller.signal);
+});
+
+test('hybrid provider forwards abort signals to direct database reads', async () => {
+  const controller = new AbortController();
+  let options: Options | undefined;
+  const provider = openBalenaDataProvider('https://api.example.test', async (_url, requestOptions) => {
+    options = requestOptions;
+    return response([{ id: 1, username: 'admin' }]);
+  });
+
+  await provider.getList('user', {
+    pagination: { page: 1, perPage: 25 },
+    sort: { field: 'id', order: 'ASC' },
+    filter: {},
+    signal: controller.signal,
+  });
+
+  assert.equal(options?.signal, controller.signal);
+});
+
+test('hybrid provider strips immutable credential fields from metadata updates', async () => {
+  const requests: Array<{ url: string; options?: Options }> = [];
+  const provider = openBalenaDataProvider('https://api.example.test', async (url, options) => {
+    requests.push({ url, options });
+    return response(url.includes('in.%287%2C8%29') ? [{ id: 7 }, { id: 8 }] : { id: 7, name: 'renamed' });
+  });
+
+  await provider.update('api key', {
+    id: 7,
+    data: { 'id': 7, 'name': 'renamed', 'key': 'redacted', 'is of-actor': 70 },
+    previousData: { 'id': 7, 'name': 'old', 'is of-actor': 70 },
+  });
+  await provider.update('user', {
+    id: 8,
+    data: { id: 8, username: 'renamed', actor: 80, password: 'hidden', jwt_secret: 'hidden' },
+    previousData: { id: 8, username: 'old', actor: 80 },
+  });
+  await provider.updateMany('api key', {
+    ids: [7, 8],
+    data: { 'name': 'bulk-renamed', 'key': 'redacted', 'is of-actor': 70 },
+  });
+
+  assert.deepEqual(JSON.parse(String(requests[0].options?.body)), { id: 7, name: 'renamed' });
+  assert.deepEqual(JSON.parse(String(requests[1].options?.body)), { id: 8, username: 'renamed' });
+  assert.deepEqual(JSON.parse(String(requests[2].options?.body)), { name: 'bulk-renamed' });
 });
 
 test('hybrid provider creates users through the dedicated action', async () => {

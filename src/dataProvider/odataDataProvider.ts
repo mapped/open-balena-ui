@@ -1,5 +1,6 @@
 import type { DataProvider, Identifier, Options, RaRecord } from 'react-admin';
 import { fetchUtils } from 'react-admin';
+import { requestSignal } from './requestSignal';
 
 export type HttpClient = (url: string, options?: Options) => ReturnType<typeof fetchUtils.fetchJson>;
 
@@ -363,7 +364,7 @@ export const createODataDataProvider = (
         .map((field) => toApiField(field.trim()))
         .join(',');
     }
-    const options: Options = { signal: params.signal };
+    const options: Options = { signal: requestSignal(params) };
     const [{ json }, countResponse] = await Promise.all([
       httpClient(collectionUrl(resource, query), options),
       httpClient(
@@ -378,9 +379,10 @@ export const createODataDataProvider = (
   };
 
   const provider = {
+    supportAbortSignal: true,
     getList: list,
     getOne: async (resource, params) => {
-      const { json } = await httpClient(entityUrl(resource, params.id), { signal: params.signal });
+      const { json } = await httpClient(entityUrl(resource, params.id), { signal: requestSignal(params) });
       return { data: requireRecord(extractSingle(json), 'getOne') };
     },
     getMany: async (resource, params) => {
@@ -391,21 +393,24 @@ export const createODataDataProvider = (
         collectionUrl(resource, {
           $filter: arrayComparison('id', 'in', params.ids),
         }),
-        { signal: params.signal },
+        { signal: requestSignal(params) },
       );
       return { data: extractCollection(json).items.map(transformFromApi) as RaRecord[] };
     },
     getManyReference: (resource, params) =>
       list(resource, { ...params, filter: { ...params.filter, [params.target]: params.id } }),
     create: async (resource, params) => {
-      const { json } = await httpClient(resourcePath(resource), writeOptions('POST', params.data, params.signal));
+      const { json } = await httpClient(
+        resourcePath(resource),
+        writeOptions('POST', params.data, requestSignal(params)),
+      );
       const response = extractSingle(json);
       return { data: requireRecord(response, 'create') };
     },
     update: async (resource, params) => {
       const { json } = await httpClient(
         entityUrl(resource, params.id),
-        writeOptions('PATCH', params.data, params.signal),
+        writeOptions('PATCH', params.data, requestSignal(params)),
       );
       const response = extractSingle(json);
       return {
@@ -416,15 +421,23 @@ export const createODataDataProvider = (
       };
     },
     updateMany: async (resource, params) => {
-      await Promise.all(
-        params.ids.map((id) => httpClient(entityUrl(resource, id), writeOptions('PATCH', params.data, params.signal))),
+      const responses = await Promise.all(
+        params.ids.map((id) =>
+          httpClient(entityUrl(resource, id), writeOptions('PATCH', params.data, requestSignal(params))),
+        ),
       );
+      responses.forEach(({ json }, index) => {
+        const response = extractSingle(json);
+        if (response != null) {
+          requireRecord(response, 'updateMany', params.ids[index]);
+        }
+      });
       return { data: params.ids };
     },
     delete: async (resource, params) => {
       const { json } = await httpClient(
         entityUrl(resource, params.id),
-        writeOptions('DELETE', undefined, params.signal),
+        writeOptions('DELETE', undefined, requestSignal(params)),
       );
       const response = extractSingle(json);
       return {
@@ -435,9 +448,17 @@ export const createODataDataProvider = (
       };
     },
     deleteMany: async (resource, params) => {
-      await Promise.all(
-        params.ids.map((id) => httpClient(entityUrl(resource, id), writeOptions('DELETE', undefined, params.signal))),
+      const responses = await Promise.all(
+        params.ids.map((id) =>
+          httpClient(entityUrl(resource, id), writeOptions('DELETE', undefined, requestSignal(params))),
+        ),
       );
+      responses.forEach(({ json }, index) => {
+        const response = extractSingle(json);
+        if (response != null) {
+          requireRecord(response, 'deleteMany', params.ids[index]);
+        }
+      });
       return { data: params.ids };
     },
   };

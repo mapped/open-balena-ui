@@ -77,7 +77,7 @@ const authProvider: OpenBalenaAuthProvider = {
   },
   checkError: (error: { status?: number; body?: { code?: string } }) => {
     const status = error.status;
-    if (status === 504 || (status === 403 && error.body?.code !== 'ADMIN_DB_FORBIDDEN')) {
+    if (status === 401 || status === 504 || (status === 403 && error.body?.code !== 'ADMIN_DB_FORBIDDEN')) {
       localStorage.removeItem('auth');
       return Promise.reject();
     }

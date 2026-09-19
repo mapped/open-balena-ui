@@ -2,13 +2,15 @@ import type { DataProvider } from 'react-admin';
 import semver from 'semver';
 import postgrestDataProvider from './postgrestDataProvider';
 import createODataDataProvider, { ODATA_RESOURCES, type HttpClient } from './odataDataProvider';
+import { requestSignal } from './requestSignal';
 
 export type OpenBalenaDataProvider = DataProvider & {
-  changePassword(params: { userId: number | string; password: string }): Promise<void>;
+  changePassword(params: { userId: number | string; password: string; signal?: AbortSignal }): Promise<void>;
   deleteResourceActor(params: {
     resource: 'application' | 'device' | 'user';
     id: number | string;
     actorId: number | string;
+    signal?: AbortSignal;
   }): Promise<void>;
 };
 
@@ -35,7 +37,11 @@ export const DIRECT_DB_RESOURCES = new Set([
 
 export const resolveODataVersion = (serverVersion?: string, override?: string): string => {
   if (override) {
-    return override.startsWith('v') ? override : `v${override}`;
+    const normalizedOverride = override.startsWith('v') ? override : `v${override}`;
+    if (!['v6', 'v7'].includes(normalizedOverride)) {
+      throw new Error('REACT_APP_OPEN_BALENA_ODATA_VERSION must be v6 or v7.');
+    }
+    return normalizedOverride;
   }
   const normalized = serverVersion ? semver.coerce(serverVersion) : null;
   return normalized && semver.gte(normalized, '25.2.8') ? 'v7' : 'v6';
@@ -63,8 +69,23 @@ export const openBalenaDataProvider = (
       `Resource "${resource}" has no data-provider route. Add it explicitly to the OData or direct database allowlist.`,
     );
   };
+  const sanitizeUpdateData = (resource: string, data: Record<string, unknown>): Record<string, unknown> => {
+    const sanitized = { ...data };
+    if (resource === 'user') {
+      delete sanitized.actor;
+      delete sanitized.password;
+      delete sanitized.jwt_secret;
+      delete sanitized['jwt secret'];
+    }
+    if (resource === 'api key') {
+      delete sanitized['is of-actor'];
+      delete sanitized.key;
+    }
+    return sanitized;
+  };
 
   return {
+    supportAbortSignal: true,
     getList: async (resource, params) => route(resource).getList(resource, params),
     getOne: async (resource, params) => route(resource).getOne(resource, params),
     getMany: async (resource, params) => route(resource).getMany(resource, params),
@@ -75,6 +96,7 @@ export const openBalenaDataProvider = (
           method: 'POST',
           headers: new Headers({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(params.data),
+          signal: requestSignal(params),
         });
         return { data: json };
       }
@@ -83,6 +105,7 @@ export const openBalenaDataProvider = (
           method: 'POST',
           headers: new Headers({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(params.data),
+          signal: requestSignal(params),
         });
         return { data: json };
       }
@@ -91,19 +114,29 @@ export const openBalenaDataProvider = (
           method: 'POST',
           headers: new Headers({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ resource, data: params.data }),
+          signal: requestSignal(params),
         });
         return { data: json };
       }
       return route(resource).create(resource, params);
     },
-    update: async (resource, params) => route(resource).update(resource, params),
-    updateMany: async (resource, params) => route(resource).updateMany(resource, params),
+    update: async (resource, params) =>
+      route(resource).update(resource, {
+        ...params,
+        data: sanitizeUpdateData(resource, params.data),
+      }),
+    updateMany: async (resource, params) =>
+      route(resource).updateMany(resource, {
+        ...params,
+        data: sanitizeUpdateData(resource, params.data),
+      }),
     delete: async (resource, params) => {
       if (resource === 'api key') {
         const { json } = await httpClient('/admin-db/actions/delete-api-key', {
           method: 'POST',
           headers: new Headers({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ id: params.id }),
+          signal: requestSignal(params),
         });
         return { data: json };
       }
@@ -117,6 +150,7 @@ export const openBalenaDataProvider = (
               method: 'POST',
               headers: new Headers({ 'Content-Type': 'application/json' }),
               body: JSON.stringify({ id }),
+              signal: requestSignal(params),
             }),
           ),
         );
@@ -124,18 +158,20 @@ export const openBalenaDataProvider = (
       }
       return route(resource).deleteMany(resource, params);
     },
-    changePassword: async ({ userId, password }) => {
+    changePassword: async ({ userId, password, signal }) => {
       await httpClient('/admin-db/actions/change-password', {
         method: 'POST',
         headers: new Headers({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userId, password }),
+        signal,
       });
     },
-    deleteResourceActor: async ({ resource, id, actorId }) => {
+    deleteResourceActor: async ({ resource, id, actorId, signal }) => {
       await httpClient('/admin-db/actions/delete-resource-actor', {
         method: 'POST',
         headers: new Headers({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ resource, id, actorId }),
+        signal,
       });
     },
   };

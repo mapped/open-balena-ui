@@ -20,6 +20,7 @@ import {
   TextField,
   TextInput,
   Toolbar,
+  useAuthProvider,
   useRecordContext,
   useListContext,
   useUnique,
@@ -34,6 +35,7 @@ import ManageRoles from '../ui/ManageRoles';
 import Row from '../ui/Row';
 
 import type { Identifier, RaRecord } from 'react-admin';
+import type { OpenBalenaAuthProvider } from '../authProvider/openbalenaAuthProvider';
 
 interface ActorFieldProps {
   record: RaRecord<Identifier>;
@@ -103,10 +105,7 @@ const ActorField: React.FC<ActorFieldProps> = ({ record }) => {
   return <Chip label={generateLabel()} href={actorRecord.actorLink} component='a' clickable />;
 };
 
-const apiKeyFilters = [
-  <SearchInput key='search' source='name@ilike' alwaysOn />,
-  <ActorFilter key='actor' alwaysOn />,
-];
+const apiKeyFilters = [<SearchInput key='search' source='name@ilike' alwaysOn />, <ActorFilter key='actor' alwaysOn />];
 
 const CustomBulkActionButtons: React.FC = (props) => {
   const { selectedIds } = useListContext();
@@ -161,6 +160,10 @@ export const ApiKeyList: React.FC = () => {
 export const ApiKeyCreate: React.FC = (props) => {
   const createApiKey = useCreateApiKey();
   const unique = useUnique();
+  const authProvider = useAuthProvider<OpenBalenaAuthProvider>();
+  const session = authProvider?.getSession();
+  const sessionUserId = Number(session?.object.id ?? session?.object.sub);
+  const authenticatedUserId = Number.isInteger(sessionUserId) && sessionUserId > 0 ? sessionUserId : undefined;
 
   return (
     <Create {...props} transform={createApiKey}>
@@ -172,9 +175,28 @@ export const ApiKeyCreate: React.FC = (props) => {
         </Row>
 
         <Row>
+          {authenticatedUserId != null ? (
+            <FormDataConsumer>
+              {({ formData, ...rest }) => {
+                const disable = !!formData.deviceActor || !!formData.fleetActor;
+                return (
+                  <ReferenceInput source='userActor' reference='user' filter={{ id: authenticatedUserId }} {...rest}>
+                    <SelectInput
+                      label='My Account'
+                      optionText='username'
+                      optionValue='actor'
+                      resettable
+                      disabled={disable}
+                    />
+                  </ReferenceInput>
+                );
+              }}
+            </FormDataConsumer>
+          ) : null}
+
           <FormDataConsumer>
             {({ formData, ...rest }) => {
-              const disable = !!formData.fleetActor;
+              const disable = !!formData.userActor || !!formData.fleetActor;
               return (
                 <ReferenceInput source='deviceActor' reference='device' {...rest}>
                   <SelectInput optionText='device name' optionValue='actor' resettable disabled={disable} />
@@ -185,7 +207,7 @@ export const ApiKeyCreate: React.FC = (props) => {
 
           <FormDataConsumer>
             {({ formData, ...rest }) => {
-              const disable = !!formData.deviceActor;
+              const disable = !!formData.userActor || !!formData.deviceActor;
               return (
                 <ReferenceInput source='fleetActor' reference='application' {...rest}>
                   <SelectInput optionText='app name' optionValue='actor' resettable disabled={disable} />

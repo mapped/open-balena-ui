@@ -2,7 +2,8 @@
 
 Open Balena Admin uses two data backends behind one react-admin data provider:
 
-1. **open-balena-api OData v6** is the default for operational resources.
+1. **open-balena-api OData** is the default for operational resources, using v6 or v7 according to the configured server
+   version.
 2. **open-balena-postgrest** is an explicit exception for administrator-only identity and authorization data.
 
 The routing table lives in `src/dataProvider/openBalenaDataProvider.ts`. A resource that is absent from both allowlists
@@ -23,6 +24,10 @@ open-balena-api release (v0.139.0). It selects OData v7 on v25.2.8 and newer, en
 existing UI compatibility mappings reduce functionality for older installations. `REACT_APP_OPEN_BALENA_ODATA_VERSION`
 can override that selection, but this is separate from `REACT_APP_OPEN_BALENA_API_VERSION`, which is the server software
 version.
+
+The hybrid provider advertises React Admin abort-signal support for read queries. React Admin does not synthesize
+mutation abort signals; callers that need cancellable mutations can supply an `AbortSignal` through `meta.signal`, which
+the hybrid provider forwards through OData, PostgREST, and dedicated server actions.
 
 ## Why PostgREST is still required
 

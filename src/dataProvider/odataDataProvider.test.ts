@@ -233,3 +233,22 @@ test('provider rejects invalid and mismatched mutation response ids', async () =
     /delete response contained an unexpected record id/,
   );
 });
+
+test('provider validates non-empty bulk mutation responses against requested ids', async () => {
+  const updateProvider = createODataDataProvider('https://api.example.test', async (url) =>
+    response({ id: url.includes('(7)') ? 7 : 99 }),
+  );
+  const deleteProvider = createODataDataProvider('https://api.example.test', async () => response({}));
+
+  await assert.rejects(
+    updateProvider.updateMany('device', {
+      ids: [7, 8],
+      data: { 'device name': 'renamed' },
+    }),
+    /updateMany response contained an unexpected record id/,
+  );
+  await assert.rejects(
+    deleteProvider.deleteMany('device', { ids: [7, 8] }),
+    /deleteMany response did not contain a record with an id/,
+  );
+});

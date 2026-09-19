@@ -104,11 +104,12 @@ Redaction is applied in both legacy and enforced modes:
 Credential fields are also rejected in query parameters to prevent filter-based inference. Generic user POST, PATCH, and
 PUT requests cannot set password/JWT-secret fields, and generic API-key creation or key-material mutation is rejected.
 User and API-key actor ownership is immutable through generic updates in every authorization mode, preventing ownership
-rebinding from turning another human user's credential into a caller-visible key.
-API keys are created through `/admin-db/actions/create-api-key`, which validates the target actor and generates key
-material with the server's cryptographic random source. Deletion uses `/admin-db/actions/delete-api-key` so dependent
-privilege rows are removed only after the server validates the key itself is in mutation scope. PostgREST upsert
-preferences are rejected so a create request cannot modify an existing out-of-scope record.
+rebinding from turning another human user's credential into a caller-visible key. API keys are created through
+`/admin-db/actions/create-api-key`, which validates the target actor and generates key material with the server's
+cryptographic random source. The create form offers the authenticated user's own actor plus in-scope fleet and device
+actors, without listing other human users. Deletion uses `/admin-db/actions/delete-api-key` so dependent privilege rows
+are removed only after the server validates the key itself is in mutation scope. PostgREST upsert preferences are
+rejected so a create request cannot modify an existing out-of-scope record.
 
 Password changes use the dedicated `/admin-db/actions/change-password` action. Global administrators may reset user
 passwords; organization administrators may change only their own password because a user account and its password can

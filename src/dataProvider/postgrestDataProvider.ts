@@ -2,6 +2,7 @@
 
 import queryString from 'query-string';
 import { fetchUtils } from 'ra-core';
+import { requestSignal } from './requestSignal';
 
 function parseFilters(filter, defaultListOp) {
   let result = {};
@@ -151,6 +152,7 @@ export const postgrestDataProvider = (
   defaultListOp = 'eq',
   primaryKeys = defaultPrimaryKeys,
 ) => ({
+  supportAbortSignal: true,
   getList: async (resource, params) => {
     const primaryKey = getPrimaryKey(resource, primaryKeys);
 
@@ -184,6 +186,7 @@ export const postgrestDataProvider = (
     }
     // add header that Content-Range is in returned header
     const options = {
+      signal: requestSignal(params),
       headers: new Headers({
         Accept: 'application/json',
         Prefer: 'count=exact',
@@ -221,6 +224,7 @@ export const postgrestDataProvider = (
     const url = `${apiUrl}/${resource}?${query}`;
 
     return httpClient(url, {
+      signal: requestSignal(params),
       headers: new Headers({ accept: 'application/vnd.pgrst.object+json' }),
     }).then(({ json }) => ({
       data: dataWithId(json, primaryKey),
@@ -235,7 +239,9 @@ export const postgrestDataProvider = (
 
     const url = `${apiUrl}/${resource}?${query}`;
 
-    return httpClient(url).then(({ json }) => ({ data: json.map((data) => dataWithId(data, primaryKey)) }));
+    return httpClient(url, { signal: requestSignal(params) }).then(({ json }) => ({
+      data: json.map((data) => dataWithId(data, primaryKey)),
+    }));
   },
 
   getManyReference: (resource, params) => {
@@ -261,6 +267,7 @@ export const postgrestDataProvider = (
 
     // add header that Content-Range is in returned header
     const options = {
+      signal: requestSignal(params),
       headers: new Headers({
         Accept: 'application/json',
         Prefer: 'count=exact',
@@ -306,6 +313,7 @@ export const postgrestDataProvider = (
 
     return httpClient(url, {
       method: 'PATCH',
+      signal: requestSignal(params),
       headers: new Headers({
         'Accept': 'application/vnd.pgrst.object+json',
         'Prefer': 'return=representation',
@@ -321,22 +329,16 @@ export const postgrestDataProvider = (
 
     const query = getQuery(primaryKey, ids, resource);
 
-    const body = JSON.stringify(
-      params.data.map((obj) => {
-        const { id, ...data } = obj;
-        const primaryKeyData = getKeyData(primaryKey, data);
-
-        return {
-          ...data,
-          ...primaryKeyData,
-        };
-      }),
-    );
+    const data = { ...params.data };
+    delete data.id;
+    primaryKey.forEach((key) => delete data[key]);
+    const body = JSON.stringify(data);
 
     const url = `${apiUrl}/${resource}?${query}`;
 
     return httpClient(url, {
       method: 'PATCH',
+      signal: requestSignal(params),
       headers: new Headers({
         'Prefer': 'return=representation',
         'Content-Type': 'application/json',
@@ -354,6 +356,7 @@ export const postgrestDataProvider = (
 
     return httpClient(url, {
       method: 'POST',
+      signal: requestSignal(params),
       headers: new Headers({
         'Accept': 'application/vnd.pgrst.object+json',
         'Prefer': 'return=representation',
@@ -378,6 +381,7 @@ export const postgrestDataProvider = (
 
     return httpClient(url, {
       method: 'DELETE',
+      signal: requestSignal(params),
       headers: new Headers({
         'Accept': 'application/vnd.pgrst.object+json',
         'Prefer': 'return=representation',
@@ -396,6 +400,7 @@ export const postgrestDataProvider = (
 
     return httpClient(url, {
       method: 'DELETE',
+      signal: requestSignal(params),
       headers: new Headers({
         'Prefer': 'return=representation',
         'Content-Type': 'application/json',
