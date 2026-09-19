@@ -8,17 +8,14 @@ import {
   FunctionField,
   List,
   ReferenceField,
-  ReferenceInput,
-  ReferenceManyField,
-  SelectInput,
   SimpleForm,
-  SingleFieldList,
   TextField,
   TextInput,
   Toolbar,
   required,
 } from 'react-admin';
 import CopyChip from '../ui/CopyChip';
+import ReleaseImageInput from '../ui/ReleaseImageInput';
 import Row from '../ui/Row';
 import SemVerChip from '../ui/SemVerChip';
 
@@ -26,22 +23,20 @@ export const ImageLabelList: React.FC = () => {
   return (
     <List title='Image Labels'>
       <Datagrid size='medium' rowClick={false}>
-        <TextField label='Image' source='release image' />
+        <TextField label='Release Image' source='release image' />
 
-        <ReferenceField label='Service' source='release image' reference='image' link={false}>
-          <ReferenceField label='Service' source='is a build of-service' reference='service' link={false}>
-            <TextField source='service name' />
+        <ReferenceField label='Service' source='release image' reference='image-is part of-release' link={false}>
+          <ReferenceField source='image' reference='image' link={false}>
+            <ReferenceField source='is a build of-service' reference='service' link={false}>
+              <TextField source='service name' />
+            </ReferenceField>
           </ReferenceField>
         </ReferenceField>
 
-        <ReferenceField label='Release Rev.' source='release image' reference='image' link={false}>
-          <ReferenceManyField source='id' reference='image-is part of-release' target='image'>
-            <SingleFieldList linkType={false}>
-              <ReferenceField source='is part of-release' reference='release' link={false}>
-                <SemVerChip />
-              </ReferenceField>
-            </SingleFieldList>
-          </ReferenceManyField>
+        <ReferenceField label='Release Rev.' source='release image' reference='image-is part of-release' link={false}>
+          <ReferenceField source='is part of-release' reference='release' link={false}>
+            <SemVerChip />
+          </ReferenceField>
         </ReferenceField>
 
         <TextField label='Name' source='label name' />
@@ -68,15 +63,7 @@ export const ImageLabelList: React.FC = () => {
 export const ImageLabelCreate: React.FC = () => (
   <Create title='Create Image Label' redirect='list'>
     <SimpleForm>
-      <ReferenceInput
-        source='release image'
-        reference='image'
-        target='id'
-        perPage={1000}
-        sort={{ field: 'id', order: 'ASC' }}
-      >
-        <SelectInput optionText='id' optionValue='id' validate={required()} fullWidth={true} />
-      </ReferenceInput>
+      <ReleaseImageInput />
 
       <Row>
         <TextInput label='Name' source='label name' validate={required()} size='large' />
@@ -89,15 +76,7 @@ export const ImageLabelCreate: React.FC = () => (
 export const ImageLabelEdit: React.FC = () => (
   <Edit title='Edit Image Label'>
     <SimpleForm>
-      <ReferenceInput
-        source='release image'
-        reference='image'
-        target='id'
-        perPage={1000}
-        sort={{ field: 'id', order: 'ASC' }}
-      >
-        <SelectInput optionText='id' optionValue='id' validate={required()} fullWidth={true} />
-      </ReferenceInput>
+      <ReleaseImageInput />
 
       <Row>
         <TextInput label='Name' source='label name' validate={required()} size='large' />
